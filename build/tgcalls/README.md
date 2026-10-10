@@ -3194,3 +3194,41 @@ Device acceptance: after signing in to a second account, open the account select
 tapping Add Account. Its row should now appear immediately; if it first says `Loading...`,
 it should change to the account name and avatar after the privacy-safe `GetUser` request
 returns. Confirm that switching and relaunching introduce neither duplicate nor blank rows.
+
+## 26.9.6244.0 — account selector source-versus-render diagnostics
+
+The upstream-style profile hydration in `6243` did not make the secondary account visible
+on the affected device. That rules out an absent cached `User` as the sole cause. `6244`
+adds a maximum of 24 privacy-safe `account_selector` diagnostics per root page so the next
+device run can distinguish whether the account is absent from the live session source or
+present but not realized by the Windows 10 Mobile footer `ListView`.
+
+Each record contains only a process-local session slot, phase, boolean state, and counts:
+
+```text
+account_selector|stage=rebuild;expanded=<0|1>;source=<count>;rows=<count>;bound=<count>
+account_selector|stage=container;slot=<slot>;phase=<0..2>;profile=<0|1>
+account_selector|stage=request;slot=<slot>;queued=<0|1>
+account_selector|stage=response;slot=<slot>;result=<type>
+```
+
+It never records Telegram user IDs, names, phone numbers, account credentials, message
+content, tokens, or paths. `source=2;rows=2` paired with one missing row isolates the
+problem to container realization; `source=1` isolates it to account/session lifecycle.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6244.0_ARM_AccountSelectorDiagnostics_Sideload.zip` | `9BE9B8C8EFD999FE3992F301CC708FD7EB3BFBEF7A32C844515F0A01EAE4AE7F` | 65,106,288 |
+| `Unigram_26.9.6244.0_ARM.appx` | `F061E88C9C1D5E955EA7B7DFAA344A1F4DB5DBDFC2633E718FF2E19729FCEDB0` | 58,559,402 |
+| `Unigram_26.9.6244.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6244.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and four ARM dependency APPXs.

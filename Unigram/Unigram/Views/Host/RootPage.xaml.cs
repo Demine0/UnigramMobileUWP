@@ -35,6 +35,7 @@ namespace Unigram.Views.Host
         private MvxObservableCollection<object> _navigationViewItems;
         private readonly Dictionary<int, User> _sessionUsers = new Dictionary<int, User>();
         private readonly HashSet<int> _pendingSessionUsers = new HashSet<int>();
+        private int _accountSelectorDiagnosticBudget = 24;
 
         public RootPage(NavigationService service)
         {
@@ -302,9 +303,11 @@ namespace Unigram.Views.Host
         {
             if (session.UserId == 0 || !_pendingSessionUsers.Add(session.Id))
             {
+                TraceAccountSelector($"stage=request;slot={session.Id};queued=0");
                 return;
             }
 
+            TraceAccountSelector($"stage=request;slot={session.Id};queued=1");
             session.ProtoService.Send(new GetUser(session.UserId), response =>
             {
                 _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
@@ -314,10 +317,23 @@ namespace Unigram.Views.Host
                     if (response is User user && user.Id == session.UserId)
                     {
                         _sessionUsers[session.Id] = user;
+                        TraceAccountSelector($"stage=response;slot={session.Id};result=user");
                         InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
+                    }
+                    else
+                    {
+                        TraceAccountSelector($"stage=response;slot={session.Id};result={response?.GetType().Name ?? "null"}");
                     }
                 });
             });
+        }
+
+        private void TraceAccountSelector(string value)
+        {
+            if (System.Threading.Interlocked.Decrement(ref _accountSelectorDiagnosticBudget) >= 0)
+            {
+                Logs.PushDiagnostics.Write("account_selector", value);
+            }
         }
 
         private void InitializeSessions(bool show, IList<ISessionService> items)
@@ -355,6 +371,7 @@ namespace Unigram.Views.Host
             }
 
             _navigationViewItems.ReplaceWith(navigationItems);
+            TraceAccountSelector($"stage=rebuild;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={navigationItems.OfType<ISessionService>().Count()};bound={NavigationViewList.Items.Count}");
         }
 
         #region Recycling
@@ -434,6 +451,8 @@ namespace Unigram.Views.Host
                 {
                     RequestSessionUser(session);
                 }
+
+                TraceAccountSelector($"stage=container;slot={session.Id};phase={args.Phase};profile={(user != null ? 1 : 0)}");
 
                 if (args.Phase == 0)
                 {
