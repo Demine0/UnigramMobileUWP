@@ -406,42 +406,62 @@ namespace Unigram.Views.Host
                 return;
             }
 
-            var navigationItems = _navigationViewItems.ToList();
-
-            for (int i = 0; i < navigationItems.Count; i++)
+            var desiredSessions = show ? items : new List<ISessionService>();
+            var existingCount = 0;
+            while (existingCount < _navigationViewItems.Count && _navigationViewItems[existingCount] is ISessionService)
             {
-                if (navigationItems[i] is ISessionService)
-                {
-                    navigationItems.RemoveAt(i);
-                    i--;
-                }
-                else if (navigationItems[i] is RootDestination viewItem && viewItem == RootDestination.AddAccount)
-                {
-                    navigationItems.RemoveAt(i);
+                existingCount++;
+            }
 
-                    if (i < navigationItems.Count && navigationItems[i] is RootDestination destination && destination == RootDestination.Separator)
-                    {
-                        navigationItems.RemoveAt(i);
-                        break;
-                    }
+            var commonCount = Math.Min(existingCount, desiredSessions.Count);
+            for (int i = 0; i < commonCount; i++)
+            {
+                if (!ReferenceEquals(_navigationViewItems[i], desiredSessions[i]))
+                {
+                    commonCount = 0;
+                    break;
                 }
             }
 
-            if (show && items != null)
+            for (int i = existingCount - 1; i >= commonCount; i--)
             {
-                navigationItems.Insert(0, RootDestination.Separator);
-                navigationItems.Insert(0, RootDestination.AddAccount);
+                _navigationViewItems.RemoveAt(i);
+            }
 
-                for (int k = items.Count - 1; k >= 0; k--)
+            for (int i = commonCount; i < desiredSessions.Count; i++)
+            {
+                _navigationViewItems.Insert(i, desiredSessions[i]);
+            }
+
+            var commandsIndex = desiredSessions.Count;
+            if (show)
+            {
+                if (commandsIndex >= _navigationViewItems.Count || !(_navigationViewItems[commandsIndex] is RootDestination commandDestination && commandDestination == RootDestination.AddAccount))
                 {
-                    navigationItems.Insert(0, items[k]);
+                    _navigationViewItems.Insert(commandsIndex, RootDestination.AddAccount);
+                }
+
+                if (commandsIndex + 1 >= _navigationViewItems.Count || !(_navigationViewItems[commandsIndex + 1] is RootDestination separatorDestination && separatorDestination == RootDestination.Separator))
+                {
+                    _navigationViewItems.Insert(commandsIndex + 1, RootDestination.Separator);
+                }
+            }
+            else
+            {
+                if (commandsIndex < _navigationViewItems.Count && _navigationViewItems[commandsIndex] is RootDestination existingAddAccount && existingAddAccount == RootDestination.AddAccount)
+                {
+                    _navigationViewItems.RemoveAt(commandsIndex);
+                }
+
+                if (commandsIndex < _navigationViewItems.Count && _navigationViewItems[commandsIndex] is RootDestination existingSeparator && existingSeparator == RootDestination.Separator)
+                {
+                    _navigationViewItems.RemoveAt(commandsIndex);
                 }
             }
 
-            _navigationViewItems.ReplaceWith(navigationItems);
             _accountSelectorSessionsHash = sessionsHash;
             _accountSelectorWasExpanded = show;
-            TraceAccountSelector($"stage=rebuild;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={navigationItems.OfType<ISessionService>().Count()};bound={NavigationViewList.Items.Count}");
+            TraceAccountSelector($"stage=update;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={_navigationViewItems.OfType<ISessionService>().Count()};bound={NavigationViewList.Items.Count}");
         }
 
         #region Recycling

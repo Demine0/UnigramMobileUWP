@@ -3270,6 +3270,41 @@ both ways, relaunch, and verify the existing account opens directly to the main 
 without showing Start Messaging. Then create a new account and verify onboarding remains
 available.
 
+## 26.9.6248.0 — incremental legacy account rows
+
+The legacy flyout remains unchanged. The selector previously used
+`MvxObservableCollection.ReplaceWith`, which raises a collection `Reset` after profile or
+session updates. On Windows 10 Mobile, that reset discards every mixed-list container;
+the second account can consequently remain unrealized until an unrelated Add Account
+action forces another collection rebuild.
+
+`6248` replaces the reset with an identity-preserving diff of the leading account rows.
+When the second singleton `SessionService` becomes available, it is inserted at index 1;
+the first account and normal navigation containers are retained. Account removal and
+selector collapse use corresponding indexed removes. This avoids overlapping rows and
+preserves the original `ListView` item panel and templates.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6248.0_ARM_IncrementalAccountRows_Sideload.zip` | `C792FE1150F17C69E6C35CA5656C8AC988D7F2A00D71046C0899AE0E001F7C38` | 65,113,214 |
+| `Unigram_26.9.6248.0_ARM.appx` | `AE44023C48A0D8DF7F59A2E676B1E1D12425AA92EE37EC031D519DCB29653C01` | 58,569,531 |
+| `Unigram_26.9.6248.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6248.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and four ARM dependency APPXs.
+
+Device test: fully exit and relaunch with two authorized accounts, then open the legacy
+flyout before selecting Add Account. Both account rows must be visible immediately, retain
+the original template, and show exactly one blue active-account indicator.
+
 ## 26.9.6247.0 — restore menu container rendering
 
 Do not deploy `6246` for selector testing. On Windows 10 Mobile, replacing this
