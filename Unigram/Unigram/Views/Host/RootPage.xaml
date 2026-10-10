@@ -84,7 +84,7 @@
                     Margin="4,0,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
-                    Visibility="{x:Bind IsActive, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    Visibility="Collapsed"
                     Fill="{ThemeResource NavigationViewSelectionIndicatorForeground}" />
 
                 <TextBlock
@@ -152,9 +152,14 @@
                             ItemClick="OnItemClick"
                             IsItemClickEnabled="True"
                             SelectionMode="None"
-                          ChoosingItemContainer="OnChoosingItemContainer"
+                            ChoosingItemContainer="OnChoosingItemContainer"
                             ContainerContentChanging="OnContainerContentChanging"
                             Grid.Row="1">
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

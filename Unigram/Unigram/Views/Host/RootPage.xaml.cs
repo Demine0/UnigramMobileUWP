@@ -22,6 +22,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Windows.UI.Xaml.Shapes;
 using Point = Windows.Foundation.Point;
 
 namespace Unigram.Views.Host
@@ -133,6 +134,7 @@ namespace Unigram.Views.Host
         public void Switch(ISessionService session)
         {
             _lifetime.ActiveItem = session;
+            InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
 
             if (_navigationService != null)
             {
@@ -171,9 +173,10 @@ namespace Unigram.Views.Host
 #if MODERN_TDLIB
                     case null:
                     case AuthorizationStateWaitTdlibParameters waitTdlibParameters:
-                        // TDLib can still be starting when the shell is created. Keep the
-                        // content frame usable until the first authorization update arrives.
-                        service.Navigate(typeof(IntroPage));
+                        if (session.Settings.UserId == 0)
+                        {
+                            service.Navigate(typeof(IntroPage));
+                        }
                         break;
 #endif
                 }
@@ -348,6 +351,9 @@ namespace Unigram.Views.Host
                 title.Text = user.GetFullName();
                 Automation.SetToolTip(content, title.Text);
 
+                var indicator = content.Children[1] as Rectangle;
+                indicator.Visibility = session == _lifetime.ActiveItem ? Visibility.Visible : Visibility.Collapsed;
+
                 var photo = content.Children[0] as ProfilePicture;
                 photo.Source = PlaceholderHelper.GetUser(session.ProtoService, user, 28);
             }
@@ -520,6 +526,9 @@ namespace Unigram.Views.Host
                     title.Text = user?.GetFullName() ?? Strings.Resources.Loading;
 
                     Automation.SetToolTip(content, title.Text);
+
+                    var indicator = content.Children[1] as Rectangle;
+                    indicator.Visibility = session == _lifetime.ActiveItem ? Visibility.Visible : Visibility.Collapsed;
                 }
                 else if (args.Phase == 2 && user != null)
                 {

@@ -71,8 +71,7 @@ namespace Unigram.Services
             }
             set
             {
-                //Set(ref _isActive, value);
-                _isActive = value;
+                Set(ref _isActive, value);
 
                 if (!value)
                 {

@@ -231,17 +231,31 @@ namespace Unigram.Common
                 {
 #if MODERN_TDLIB
                     case null:
-                        // Modern TDLib reports the first authorization state asynchronously,
-                        // so a fresh start observes no state at all here. Without this case
-                        // the content frame is never navigated and only the shell renders.
-                        PushDiagnostics.Write("startup.navigate", "state=null;target=IntroPage");
-                        service.Navigate(typeof(IntroPage));
+                        // Modern TDLib reports the first authorization state asynchronously.
+                        // A persisted user belongs to a restored session; keep its frame empty
+                        // until TDLib confirms Ready instead of flashing the first-run intro.
+                        if (_lifetime.ActiveItem.Settings.UserId == 0)
+                        {
+                            PushDiagnostics.Write("startup.navigate", "state=null;target=IntroPage;first_run=1");
+                            service.Navigate(typeof(IntroPage));
+                        }
+                        else
+                        {
+                            PushDiagnostics.Write("startup.navigate", "state=null;target=deferred;first_run=0");
+                        }
                         break;
 #endif
                     case AuthorizationStateWaitTdlibParameters waitTdlibParameters:
 #if MODERN_TDLIB
-                        PushDiagnostics.Write("startup.navigate", "state=WaitTdlibParameters;target=IntroPage");
-                        service.Navigate(typeof(IntroPage));
+                        if (_lifetime.ActiveItem.Settings.UserId == 0)
+                        {
+                            PushDiagnostics.Write("startup.navigate", "state=WaitTdlibParameters;target=IntroPage;first_run=1");
+                            service.Navigate(typeof(IntroPage));
+                        }
+                        else
+                        {
+                            PushDiagnostics.Write("startup.navigate", "state=WaitTdlibParameters;target=deferred;first_run=0");
+                        }
 #else
                         service.Navigate(typeof(SignInPage));
 #endif

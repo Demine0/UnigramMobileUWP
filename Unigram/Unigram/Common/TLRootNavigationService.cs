@@ -33,13 +33,9 @@ namespace Unigram.Common
             {
                 case AuthorizationStateWaitTdlibParameters waitTdlibParameters:
 #if MODERN_TDLIB
-                    // Must match WindowContext.UseActivatedArgs, which already routed this
-                    // state to IntroPage. Under modern TDLib this update always arrives on a
-                    // later dispatcher turn, so routing it anywhere else would overwrite that
-                    // navigation and strand the user on phone login whenever SetTdlibParameters
-                    // fails to complete. It can also arrive after the user has already pressed
-                    // "Start Messaging", so never pull them back off a page they chose.
-                    if (Frame.Content == null)
+                    // A known account is restored as soon as TDLib reports Ready. Do not
+                    // overwrite the system splash with the first-run intro during that wait.
+                    if (_sessionService.Settings.UserId == 0 && Frame.Content == null)
                     {
                         Navigate(typeof(IntroPage));
                     }

@@ -3233,6 +3233,43 @@ the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
 no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
 the APPX, CER, and four ARM dependency APPXs.
 
+## 26.9.6246.0 — nonvirtualized account selector and restored-session startup
+
+The account rows now use a nonvirtualized `StackPanel` item host. This small, bounded
+selector no longer depends on `ItemsStackPanel` container realization, so every existing
+account row is created when the selector opens. The active-account indicator is also
+updated explicitly from `LifetimeService.ActiveItem`; its source property now raises
+`PropertyChanged`, preventing the blue selection bar from remaining on both rows.
+
+Startup now uses the persisted, non-sensitive per-session `Settings.UserId` only as a
+restoration marker. A known account defers navigation while TDLib is initializing and
+routes directly to `MainPage` upon `AuthorizationStateReady`, avoiding the transient
+Start Messaging intro. A genuinely new or logged-out session still receives the
+onboarding experience.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6246.0_ARM_NonvirtualSelector_SplashRouting_Sideload.zip` | `FF413D09ABB1B0BF02929D614B362833C0AF1927758AABB47D2892A57BC3433F` | 65,117,129 |
+| `Unigram_26.9.6246.0_ARM.appx` | `2C1BE587E0142B2874D34D1CF66C80879C0C868BB99F3C956F5DDEDC188182A3` | 58,570,762 |
+| `Unigram_26.9.6246.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6246.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and four ARM dependency APPXs.
+
+Device test: fully exit and relaunch with two authorized accounts, open the menu before
+tapping Add Account, and verify two visible rows with exactly one blue indicator. Switch
+both ways, relaunch, and verify the existing account opens directly to the main page
+without showing Start Messaging. Then create a new account and verify onboarding remains
+available.
+
 ## 26.9.6245.0 — account selector roster-stable refresh
 
 The `6244` device log isolated the actual defect:
