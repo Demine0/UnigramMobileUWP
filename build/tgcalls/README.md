@@ -3232,3 +3232,42 @@ the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
 `Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
 no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
 the APPX, CER, and four ARM dependency APPXs.
+
+## 26.9.6245.0 — account selector roster-stable refresh
+
+The `6244` device log isolated the actual defect:
+
+```text
+account_selector|stage=rebuild;expanded=1;source=2;rows=2;bound=15
+account_selector|stage=container;slot=1;phase=0;profile=0
+account_selector|stage=response;slot=1;result=user
+```
+
+Both sessions were present in the source and footer rows, and the second profile request
+completed successfully. The row then disappeared because every profile update rebuilt the
+entire footer collection, recycling its container before Windows 10 Mobile could keep it
+realized. This matches the upstream distinction between a changed session roster and a
+same-roster visual refresh.
+
+`6245` hashes the ordered, process-local session slots and the expanded state. It replaces
+the footer collection only when that roster or state changes; otherwise it updates realized
+profile rows in place. This preserves the second row while its profile is hydrated and
+removes the reset loop observed in the supplied log. The existing diagnostics remain
+bounded and privacy safe.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6245.0_ARM_AccountSelectorRosterRefresh_Sideload.zip` | `F924F75F0D9F739406276244E3B60F48E771894A476163D4DBC6EBE5DD896005` | 65,115,565 |
+| `Unigram_26.9.6245.0_ARM.appx` | `9ADAF76C9A3EC4EEA3F9BF404A812A8D949E9BDDD451FC42FF74D8CA3D20E7F7` | 58,571,794 |
+| `Unigram_26.9.6245.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6245.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and four ARM dependency APPXs.

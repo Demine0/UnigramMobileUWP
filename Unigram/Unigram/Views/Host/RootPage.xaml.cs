@@ -36,6 +36,8 @@ namespace Unigram.Views.Host
         private readonly Dictionary<int, User> _sessionUsers = new Dictionary<int, User>();
         private readonly HashSet<int> _pendingSessionUsers = new HashSet<int>();
         private int _accountSelectorDiagnosticBudget = 24;
+        private long _accountSelectorSessionsHash = long.MinValue;
+        private bool _accountSelectorWasExpanded;
 
         public RootPage(NavigationService service)
         {
@@ -299,6 +301,58 @@ namespace Unigram.Views.Host
             return TLContainer.Current.GetSessions().OrderBy(session => session.Id).ToList();
         }
 
+        private static long GetSessionsHash(IList<ISessionService> sessions)
+        {
+            unchecked
+            {
+                var hash = 17L;
+                foreach (var session in sessions)
+                {
+                    hash = hash * 31 + session.Id;
+                }
+
+                return hash;
+            }
+        }
+
+        private User GetSessionUser(ISessionService session)
+        {
+            var user = session.ProtoService.GetUser(session.UserId);
+            if (user == null)
+            {
+                _sessionUsers.TryGetValue(session.Id, out user);
+            }
+
+            return user;
+        }
+
+        private void RefreshSessionContainers(IList<ISessionService> sessions)
+        {
+            foreach (var session in sessions)
+            {
+                var container = NavigationViewList.ContainerFromItem(session) as ListViewItem;
+                var content = container?.ContentTemplateRoot as Grid;
+                if (content == null)
+                {
+                    continue;
+                }
+
+                var user = GetSessionUser(session);
+                if (user == null)
+                {
+                    RequestSessionUser(session);
+                    continue;
+                }
+
+                var title = content.Children[2] as TextBlock;
+                title.Text = user.GetFullName();
+                Automation.SetToolTip(content, title.Text);
+
+                var photo = content.Children[0] as ProfilePicture;
+                photo.Source = PlaceholderHelper.GetUser(session.ProtoService, user, 28);
+            }
+        }
+
         private void RequestSessionUser(ISessionService session)
         {
             if (session.UserId == 0 || !_pendingSessionUsers.Add(session.Id))
@@ -338,6 +392,14 @@ namespace Unigram.Views.Host
 
         private void InitializeSessions(bool show, IList<ISessionService> items)
         {
+            var sessionsHash = GetSessionsHash(items);
+            if (_accountSelectorSessionsHash == sessionsHash && _accountSelectorWasExpanded == show)
+            {
+                RefreshSessionContainers(items);
+                TraceAccountSelector($"stage=refresh;expanded={(show ? 1 : 0)};source={items.Count};bound={NavigationViewList.Items.Count}");
+                return;
+            }
+
             var navigationItems = _navigationViewItems.ToList();
 
             for (int i = 0; i < navigationItems.Count; i++)
@@ -371,6 +433,8 @@ namespace Unigram.Views.Host
             }
 
             _navigationViewItems.ReplaceWith(navigationItems);
+            _accountSelectorSessionsHash = sessionsHash;
+            _accountSelectorWasExpanded = show;
             TraceAccountSelector($"stage=rebuild;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={navigationItems.OfType<ISessionService>().Count()};bound={NavigationViewList.Items.Count}");
         }
 
@@ -441,11 +505,7 @@ namespace Unigram.Views.Host
                     return;
                 }
 
-                var user = session.ProtoService.GetUser(session.UserId);
-                if (user == null)
-                {
-                    _sessionUsers.TryGetValue(session.Id, out user);
-                }
+                var user = GetSessionUser(session);
 
                 if (user == null)
                 {
