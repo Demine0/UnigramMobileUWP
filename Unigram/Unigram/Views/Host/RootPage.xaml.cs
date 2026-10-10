@@ -34,10 +34,9 @@ namespace Unigram.Views.Host
 
         private RootDestination _navigationViewSelected;
         private MvxObservableCollection<object> _navigationViewItems;
-        private MvxObservableCollection<ISessionService> _accountSelectorItems;
         private readonly Dictionary<int, User> _sessionUsers = new Dictionary<int, User>();
         private readonly HashSet<int> _pendingSessionUsers = new HashSet<int>();
-        private int _accountSelectorDiagnosticBudget = 24;
+        private int _accountSelectorDiagnosticBudget = 64;
         private long _accountSelectorSessionsHash = long.MinValue;
         private bool _accountSelectorWasExpanded;
 
@@ -80,8 +79,6 @@ namespace Unigram.Views.Host
             };
 
             NavigationViewList.ItemsSource = _navigationViewItems;
-            _accountSelectorItems = new MvxObservableCollection<ISessionService>();
-            AccountSelectorList.ItemsSource = _accountSelectorItems;
 
             service.Frame.Navigating += OnNavigating;
             service.Frame.Navigated += OnNavigated;
@@ -108,7 +105,7 @@ namespace Unigram.Views.Host
 
             _navigationViewSelected = RootDestination.Chats;
             NavigationViewList.ItemsSource = _navigationViewItems;
-            AccountSelectorList.ItemsSource = _accountSelectorItems;
+            _accountSelectorSessionsHash = long.MinValue;
 
             InitializeTitleBar();
             InitializeNavigation(_navigationService.Frame);
@@ -334,13 +331,14 @@ namespace Unigram.Views.Host
             return user;
         }
 
-        private void RefreshSessionContainers(IList<ISessionService> sessions)
+        private void RefreshSessionContainers()
         {
-            foreach (var session in sessions)
+            foreach (var child in AccountSelectorPanel.Children)
             {
-                var container = AccountSelectorList.ContainerFromItem(session) as ListViewItem;
+                var container = child as ListViewItem;
+                var session = container?.Tag as ISessionService;
                 var content = container?.ContentTemplateRoot as Grid;
-                if (content == null)
+                if (session == null || content == null)
                 {
                     continue;
                 }
@@ -404,44 +402,121 @@ namespace Unigram.Views.Host
         private void InitializeSessions(bool show, IList<ISessionService> items)
         {
             var visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            AccountSelectorList.Visibility = visibility;
+            AccountSelectorPanel.Visibility = visibility;
             AddAccountItem.Visibility = visibility;
             AccountSelectorSeparator.Visibility = visibility;
 
             var sessionsHash = GetSessionsHash(items);
-            if (_accountSelectorSessionsHash == sessionsHash && _accountSelectorWasExpanded == show)
+            if (_accountSelectorSessionsHash == long.MinValue)
             {
-                RefreshSessionContainers(items);
-                TraceAccountSelector($"stage=refresh;expanded={(show ? 1 : 0)};source={items.Count};bound={AccountSelectorList.Items.Count}");
+                TraceAccountSelector($"stage=origin;stored={CountStoredSessions()};containers={items?.Count ?? 0}");
+            }
+
+            if (_accountSelectorSessionsHash == sessionsHash && _accountSelectorWasExpanded == show
+                && AccountSelectorPanel.Children.Count == (show ? items.Count : 0))
+            {
+                RefreshSessionContainers();
+                TraceAccountSelector($"stage=refresh;expanded={(show ? 1 : 0)};source={items.Count};rows={AccountSelectorPanel.Children.Count}");
                 return;
             }
 
             var desiredSessions = show ? items : new List<ISessionService>();
-            var existingCount = _accountSelectorItems.Count;
 
-            var commonCount = Math.Min(existingCount, desiredSessions.Count);
-            for (int i = 0; i < commonCount; i++)
-            {
-                if (!ReferenceEquals(_accountSelectorItems[i], desiredSessions[i]))
-                {
-                    commonCount = 0;
-                    break;
-                }
-            }
+            AccountSelectorPanel.Children.Clear();
 
-            for (int i = existingCount - 1; i >= commonCount; i--)
+            foreach (var session in desiredSessions)
             {
-                _accountSelectorItems.RemoveAt(i);
-            }
-
-            for (int i = commonCount; i < desiredSessions.Count; i++)
-            {
-                _accountSelectorItems.Insert(i, desiredSessions[i]);
+                AccountSelectorPanel.Children.Add(CreateSessionRow(session));
             }
 
             _accountSelectorSessionsHash = sessionsHash;
             _accountSelectorWasExpanded = show;
-            TraceAccountSelector($"stage=update;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={_accountSelectorItems.Count};bound={AccountSelectorList.Items.Count}");
+            TraceAccountSelector($"stage=update;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={AccountSelectorPanel.Children.Count}");
+
+            RefreshSessionContainers();
+            TraceAccountSelectorLayout();
+        }
+
+        private static int CountStoredSessions()
+        {
+            try
+            {
+                var count = 0;
+                var folders = System.IO.Directory.GetDirectories(Windows.Storage.ApplicationData.Current.LocalFolder.Path);
+                foreach (var folder in folders)
+                {
+                    if (int.TryParse(System.IO.Path.GetFileName(folder), out int _))
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+
+        private ListViewItem CreateSessionRow(ISessionService session)
+        {
+            var container = new ListViewItem
+            {
+                Content = session,
+                Tag = session,
+                ContentTemplate = Resources["SessionItemTemplate"] as DataTemplate,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(0)
+            };
+
+            container.Tapped += OnSessionRowTapped;
+            container.Loaded += OnSessionRowLoaded;
+            return container;
+        }
+
+        private void OnSessionRowLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is ListViewItem container && container.Tag is ISessionService)
+            {
+                RefreshSessionContainers();
+            }
+        }
+
+        private void OnSessionRowTapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (sender is ListViewItem container && container.Tag is ISessionService session && !session.IsActive)
+            {
+                Switch(session);
+            }
+        }
+
+        private void TraceAccountSelectorLayout()
+        {
+            AccountSelectorPanel.UpdateLayout();
+
+            var built = AccountSelectorPanel.Children.Count;
+            var realized = 0;
+            var heights = 0.0;
+
+            foreach (var child in AccountSelectorPanel.Children)
+            {
+                var element = child as FrameworkElement;
+                if (element == null)
+                {
+                    continue;
+                }
+
+                if (element.Visibility == Visibility.Visible && element.ActualHeight > 0)
+                {
+                    realized++;
+                }
+
+                heights += element.ActualHeight;
+            }
+
+            TraceAccountSelector($"stage=layout;built={built};realized={realized};rowsum={(int)heights};panel={(int)AccountSelectorPanel.ActualHeight};vis={(AccountSelectorPanel.Visibility == Visibility.Visible ? 1 : 0)}");
         }
 
         #region Recycling
@@ -617,14 +692,6 @@ namespace Unigram.Views.Host
             Expanded.IsChecked = SettingsService.Current.IsAccountsSelectorExpanded;
 
             Automation.SetToolTip(Accounts, SettingsService.Current.IsAccountsSelectorExpanded ? Strings.Resources.AccDescrHideAccounts : Strings.Resources.AccDescrShowAccounts);
-        }
-
-        private void OnAccountItemClick(object sender, ItemClickEventArgs e)
-        {
-            if (e.ClickedItem is ISessionService session && !session.IsActive)
-            {
-                Switch(session);
-            }
         }
 
         private void OnAddAccountTapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)

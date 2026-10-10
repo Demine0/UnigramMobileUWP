@@ -3410,3 +3410,20 @@ the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
 `Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
 no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
 the APPX, CER, and four ARM dependency APPXs.
+
+
+## 26.9.6250.0 - build account rows directly
+
+The account selector no longer uses an items control at all. `AccountSelectorPanel` is a
+plain `StackPanel` and `InitializeSessions` constructs one `ListViewItem` per session in
+code, assigning `SessionItemTemplate` as the content template so the legacy row visuals,
+tap behaviour and unread badge are unchanged. This removes virtualization, container
+recycling and `ChoosingItemContainer`/`ContainerContentChanging` from the account rows
+entirely, so a session can no longer be dropped by the realization pipeline.
+
+Diagnostics were extended to make the remaining failure modes separable without guessing:
+`stage=origin` reports the number of stored session folders against the number of resolved
+session containers (counts only), and `stage=layout` reports how many rows were built, how
+many have a non-zero measured height, their summed height and the panel height. The
+account-selector diagnostic budget was raised from 24 to 64 records so the first flyout open
+is never truncated. No names, identifiers, tokens, paths or message content are recorded.

@@ -155,21 +155,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <ListView x:Name="AccountSelectorList"
-                              ItemClick="OnAccountItemClick"
-                              IsItemClickEnabled="True"
-                              SelectionMode="None"
-                              ChoosingItemContainer="OnChoosingItemContainer"
-                              ContainerContentChanging="OnContainerContentChanging"
-                              ScrollViewer.VerticalScrollMode="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Padding" Value="0"/>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                    </ListView>
+                    <StackPanel x:Name="AccountSelectorPanel"/>
                     <controls:NavigationViewItem x:Name="AddAccountItem"
                                                  Glyph="&#xE109;"
                                                  Tapped="OnAddAccountTapped"
