@@ -155,11 +155,6 @@
                             ChoosingItemContainer="OnChoosingItemContainer"
                             ContainerContentChanging="OnContainerContentChanging"
                             Grid.Row="1">
-                    <ListView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel />
-                        </ItemsPanelTemplate>
-                    </ListView.ItemsPanel>
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

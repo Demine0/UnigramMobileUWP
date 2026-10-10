@@ -3270,6 +3270,36 @@ both ways, relaunch, and verify the existing account opens directly to the main 
 without showing Start Messaging. Then create a new account and verify onboarding remains
 available.
 
+## 26.9.6247.0 — restore menu container rendering
+
+Do not deploy `6246` for selector testing. On Windows 10 Mobile, replacing this
+`ListView`'s default `ItemsStackPanel` with `StackPanel` bypassed the app's
+`ChoosingItemContainer` and `ContainerContentChanging` path. Account objects and menu
+destinations consequently rendered as raw type names rather than their templates.
+
+`6247` removes only that incompatible panel override, restoring the established
+container-rendering pipeline. It retains the roster-stable behavior from `6245`, the
+one-active-account indicator correction, and the restored-session startup routing. Device
+testing has already confirmed that the Start Messaging screen no longer flashes during
+the splash sequence for an existing account.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6247.0_ARM_MenuRenderingRestore_Sideload.zip` | `60324265B45C602B671FBE63B03D10088975DADE4AA648C2A6A3A21F9D0089D3` | 65,115,078 |
+| `Unigram_26.9.6247.0_ARM.appx` | `0574DA932DFA141CCAAF7313D0B1EBC0F694F25ABCD76C7663E027AD4AADB6ED` | 58,569,452 |
+| `Unigram_26.9.6247.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6247.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and four ARM dependency APPXs.
+
 ## 26.9.6245.0 — account selector roster-stable refresh
 
 The `6244` device log isolated the actual defect:
