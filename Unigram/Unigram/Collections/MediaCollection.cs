@@ -41,24 +41,30 @@ namespace Unigram.Collections
                     new SearchChatMessages(_chatId, _query, null, _lastMaxId, 0, 50, _filter, 0)
 #endif
                 );
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out _,
+                    out var messages,
+                    out var nextFromMessageId))
                 {
-                    if (messages.MessagesValue.Count > 0)
+                    if (messages.Count > 0)
                     {
-                        _lastMaxId = messages.MessagesValue.Min(x => x.Id);
-                        _hasMore = true;
+                        _lastMaxId = nextFromMessageId != 0
+                            ? nextFromMessageId
+                            : messages.Min(x => x.Id);
+                        _hasMore = nextFromMessageId != 0;
                     }
                     else
                     {
                         _hasMore = false;
                     }
 
-                    var result = messages.MessagesValue.ToArray();
+                    var result = messages.ToArray();
                     ProcessFiles(result);
 
                     IsLoading = false;
 
-                    return messages.MessagesValue;
+                    return result;
                 }
             }
             catch { }
@@ -327,21 +333,27 @@ namespace Unigram.Collections
                     new SearchChatMessages(_chatId, _query, null, _lastMaxId, 0, 50, _filter, 0)
 #endif
                 );
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out _,
+                    out var messages,
+                    out var nextFromMessageId))
                 {
-                    ProcessFiles(messages.MessagesValue);
+                    ProcessFiles(messages);
 
-                    if (messages.MessagesValue.Count > 0)
+                    if (messages.Count > 0)
                     {
-                        _lastMaxId = messages.MessagesValue.Min(x => x.Id);
-                        _hasMore = true;
+                        _lastMaxId = nextFromMessageId != 0
+                            ? nextFromMessageId
+                            : messages.Min(x => x.Id);
+                        _hasMore = nextFromMessageId != 0;
                     }
                     else
                     {
                         _hasMore = false;
                     }
 
-                    return messages.MessagesValue.GroupBy(x =>
+                    return messages.GroupBy(x =>
                     {
                         var dateTime = Utils.UnixTimestampToDateTime(x.Date);
                         return new DateTime(dateTime.Year, dateTime.Month, 1);

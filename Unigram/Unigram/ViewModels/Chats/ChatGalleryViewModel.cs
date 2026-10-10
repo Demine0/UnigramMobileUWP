@@ -73,11 +73,15 @@ namespace Unigram.ViewModels.Chats
                     new SearchChatMessages(_chatId, string.Empty, null, fromMessageId, offset, limit, _filter, _threadId)
 #endif
                 );
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out var totalCount,
+                    out var messages,
+                    out _))
                 {
-                    TotalItems = messages.TotalCount;
+                    TotalItems = totalCount;
 
-                    foreach (var message in messages.MessagesValue.Where(x => x != null && x.Id < fromMessageId).OrderByDescending(x => x.Id))
+                    foreach (var message in messages.Where(x => x != null && x.Id < fromMessageId).OrderByDescending(x => x.Id))
                     {
                         if (message.Content is MessagePhoto || message.Content is MessageVideo || message.Content is MessageAnimation)
                         {
@@ -89,7 +93,7 @@ namespace Unigram.ViewModels.Chats
                         }
                     }
 
-                    foreach (var message in messages.MessagesValue.Where(x => x != null && x.Id > fromMessageId).OrderBy(x => x.Id))
+                    foreach (var message in messages.Where(x => x != null && x.Id > fromMessageId).OrderBy(x => x.Id))
                     {
                         if (message.Content is MessagePhoto || message.Content is MessageVideo || message.Content is MessageAnimation)
                         {
@@ -128,11 +132,15 @@ namespace Unigram.ViewModels.Chats
                     new SearchChatMessages(_chatId, string.Empty, null, fromMessageId, offset, limit, _filter, _threadId)
 #endif
                 );
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out var totalCount,
+                    out var messages,
+                    out _))
                 {
-                    TotalItems = messages.TotalCount;
+                    TotalItems = totalCount;
 
-                    foreach (var message in _isMirrored ? messages.MessagesValue.Where(x => x != null && x.Id > fromMessageId).OrderBy(x => x.Id) : messages.MessagesValue.Where(x => x != null && x.Id < fromMessageId).OrderByDescending(x => x.Id))
+                    foreach (var message in _isMirrored ? messages.Where(x => x != null && x.Id > fromMessageId).OrderBy(x => x.Id) : messages.Where(x => x != null && x.Id < fromMessageId).OrderByDescending(x => x.Id))
                     {
                         if (message.Content is MessagePhoto || message.Content is MessageVideo || message.Content is MessageAnimation)
                         {
@@ -171,11 +179,15 @@ namespace Unigram.ViewModels.Chats
                     new SearchChatMessages(_chatId, string.Empty, null, fromMessageId, offset, limit, _filter, _threadId)
 #endif
                 );
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out var totalCount,
+                    out var messages,
+                    out _))
                 {
-                    TotalItems = messages.TotalCount;
+                    TotalItems = totalCount;
 
-                    foreach (var message in _isMirrored ? messages.MessagesValue.Where(x => x != null && x.Id < fromMessageId).OrderByDescending(x => x.Id) : messages.MessagesValue.Where(x => x != null && x.Id > fromMessageId).OrderBy(x => x.Id))
+                    foreach (var message in _isMirrored ? messages.Where(x => x != null && x.Id < fromMessageId).OrderByDescending(x => x.Id) : messages.Where(x => x != null && x.Id > fromMessageId).OrderBy(x => x.Id))
                     {
                         if (message.Content is MessagePhoto || message.Content is MessageVideo || message.Content is MessageAnimation)
                         {

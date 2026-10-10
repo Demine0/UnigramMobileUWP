@@ -63,35 +63,37 @@ namespace Unigram.Views.Chats
 
         public void UpdateSharedCount(Chat chat)
         {
-            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterPhotoAndVideo()), result =>
-            {
-                if (result is Messages messages)
-                    _mediaHeader.Subtitle = messages.TotalCount.ToString();
-            });
+            UpdateSharedCount(chat, _mediaHeader, "media", new SearchMessagesFilterPhotoAndVideo());
+            UpdateSharedCount(chat, _filesHeader, "files", new SearchMessagesFilterDocument());
+            UpdateSharedCount(chat, _linksHeader, "links", new SearchMessagesFilterUrl());
+            UpdateSharedCount(chat, _musicHeader, "music", new SearchMessagesFilterAudio());
+            UpdateSharedCount(chat, _voiceHeader, "voice", new SearchMessagesFilterVoiceNote());
+        }
 
-            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterDocument()), result =>
-            {
-                if (result is Messages messages)
-                    _filesHeader.Subtitle = messages.TotalCount.ToString();
-            });
-
-            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterUrl()), result =>
-            {
-                if (result is Messages messages)
-                    _linksHeader.Subtitle = messages.TotalCount.ToString();
-            });
-
-            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterAudio()), result =>
-            {
-                if (result is Messages messages)
-                    _musicHeader.Subtitle = messages.TotalCount.ToString();
-            });
-
-            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterVoiceNote()), result =>
-            {
-                if (result is Messages messages)
-                    _voiceHeader.Subtitle = messages.TotalCount.ToString();
-            });
+        private void UpdateSharedCount(Chat chat, ChatSharedMediaTab header, string section, SearchMessagesFilter filter)
+        {
+            ViewModel.ProtoService.Send(
+                ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, filter),
+                result =>
+                {
+                    if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                        result,
+                        out var totalCount,
+                        out var messages,
+                        out _))
+                    {
+                        header.Subtitle = totalCount.ToString();
+                        Logs.PushDiagnostics.Write(
+                            "shared_media",
+                            $"section={section};result=found;total={totalCount};returned={messages.Count}");
+                    }
+                    else
+                    {
+                        Logs.PushDiagnostics.Write(
+                            "shared_media",
+                            $"section={section};result=unexpected_response");
+                    }
+                });
         }
 
         private readonly ObservableCollection<ChatSharedMediaTab> _tabs;

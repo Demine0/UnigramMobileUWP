@@ -119,6 +119,35 @@ namespace Unigram.Services
             return request;
         }
 
+        public static bool TryGetSearchChatMessages(
+            BaseObject response,
+            out int totalCount,
+            out IList<Message> messages,
+            out long nextFromMessageId)
+        {
+#if MODERN_TDLIB
+            if (response is FoundChatMessages found)
+            {
+                totalCount = found.TotalCount;
+                messages = found.Messages;
+                nextFromMessageId = found.NextFromMessageId;
+                return true;
+            }
+#endif
+            if (response is Messages legacy)
+            {
+                totalCount = legacy.TotalCount;
+                messages = legacy.MessagesValue;
+                nextFromMessageId = messages.Count > 0 ? messages.Min(message => message.Id) : 0;
+                return true;
+            }
+
+            totalCount = 0;
+            messages = null;
+            nextFromMessageId = 0;
+            return false;
+        }
+
         public static string GetWebPageTypeName(WebPage webPage)
         {
             if (webPage?.Type == null)

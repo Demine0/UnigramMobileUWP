@@ -3076,3 +3076,24 @@ Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
 | `Unigram_26.9.6237.0_ARM_VideoTeardownAndSharedMedia_Sideload.zip` | `E489C66E25C3A4057BC45B9756232DB326FD4405A322C98B0400EF20352D02EB` | 65,101,840 |
 | `Unigram_26.9.6237.0_ARM.appx` | `94663B1E2F589DF400B16B8A03D6792521F7577FC8DFAAD8BBCCC23F479B94D9` | 58,552,987 |
 | `Unigram_26.9.6237.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6238.0 — shared-media response migration
+
+Modern TDLib returns `FoundChatMessages` from `SearchChatMessages`, not the legacy
+`Messages` object. The prior migration built requests successfully but discarded every
+successful result by checking only for `Messages`. Shared-media headers and collections
+now consume `FoundChatMessages.Messages`, `TotalCount`, and `NextFromMessageId`.
+
+This restores Media, Files, Links, Music, and Voice group content and pagination. The
+added diagnostics record only the category plus returned and total counts; they contain
+no chat identity, message content, user identity, file name, or token.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6238.0_ARM_FoundChatMessages_Sideload.zip` | `676E03DAA2FBE9D6F87837683790DF79283DCCA5D582E458F35D98D4AF97D629` | 65,102,165 |
+| `Unigram_26.9.6238.0_ARM.appx` | `5CA2DEDA9A4420803C713CD5C66C24D427F82D0D284C5F975D0781E6FEE9E270` | 58,555,102 |
+| `Unigram_26.9.6238.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |

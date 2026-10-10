@@ -58,13 +58,17 @@ namespace Unigram.Collections
                     new SearchChatMessages(_chatId, _query, _sender, fromMessageId, offset, (int)count, _filter, _threadId)
 #endif
                 );
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out var totalCount,
+                    out var messages,
+                    out _))
                 {
-                    TotalCount = messages.TotalCount;
-                    AddRange(messages.MessagesValue);
-                    _hasMoreItems = messages.MessagesValue.Count == (int)count && Count < TotalCount;
+                    TotalCount = totalCount;
+                    AddRange(messages);
+                    _hasMoreItems = messages.Count == (int)count && Count < TotalCount;
 
-                    return new LoadMoreItemsResult { Count = (uint)messages.MessagesValue.Count };
+                    return new LoadMoreItemsResult { Count = (uint)messages.Count };
                 }
 
                 _hasMoreItems = false;

@@ -49,13 +49,17 @@ namespace Unigram.ViewModels.Chats
                 var offset = -limit / 2;
 
                 var response = await ProtoService.SendAsync(ModernTdlibCompatibility.CreateSearchChatMessages(_chat.Id, null, string.Empty, null, 0, offset, limit, new SearchMessagesFilterChatPhoto()));
-                if (response is Messages messages)
+                if (ModernTdlibCompatibility.TryGetSearchChatMessages(
+                    response,
+                    out var totalCount,
+                    out var messages,
+                    out _))
                 {
-                    TotalItems = messages.TotalCount;
+                    TotalItems = totalCount;
 
                     var missing = true;
 
-                    foreach (var message in messages.MessagesValue.OrderByDescending(x => x.Id))
+                    foreach (var message in messages.OrderByDescending(x => x.Id))
                     {
                         if (message.Content is MessageChatChangePhoto chatChangePhoto)
                         {
