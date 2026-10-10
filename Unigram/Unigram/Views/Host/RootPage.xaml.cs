@@ -34,6 +34,7 @@ namespace Unigram.Views.Host
 
         private RootDestination _navigationViewSelected;
         private MvxObservableCollection<object> _navigationViewItems;
+        private MvxObservableCollection<ISessionService> _accountSelectorItems;
         private readonly Dictionary<int, User> _sessionUsers = new Dictionary<int, User>();
         private readonly HashSet<int> _pendingSessionUsers = new HashSet<int>();
         private int _accountSelectorDiagnosticBudget = 24;
@@ -79,6 +80,8 @@ namespace Unigram.Views.Host
             };
 
             NavigationViewList.ItemsSource = _navigationViewItems;
+            _accountSelectorItems = new MvxObservableCollection<ISessionService>();
+            AccountSelectorList.ItemsSource = _accountSelectorItems;
 
             service.Frame.Navigating += OnNavigating;
             service.Frame.Navigated += OnNavigated;
@@ -105,6 +108,7 @@ namespace Unigram.Views.Host
 
             _navigationViewSelected = RootDestination.Chats;
             NavigationViewList.ItemsSource = _navigationViewItems;
+            AccountSelectorList.ItemsSource = _accountSelectorItems;
 
             InitializeTitleBar();
             InitializeNavigation(_navigationService.Frame);
@@ -240,6 +244,7 @@ namespace Unigram.Views.Host
 
         private void InitializeLocalization()
         {
+            AddAccountItem.Text = Strings.Resources.AddAccount;
             //NavigationChats.Text = Strings.Additional.Chats;
             //NavigationAbout.Content = Strings.Additional.About;
             //NavigationNews.Text = Strings.Additional.News;
@@ -333,7 +338,7 @@ namespace Unigram.Views.Host
         {
             foreach (var session in sessions)
             {
-                var container = NavigationViewList.ContainerFromItem(session) as ListViewItem;
+                var container = AccountSelectorList.ContainerFromItem(session) as ListViewItem;
                 var content = container?.ContentTemplateRoot as Grid;
                 if (content == null)
                 {
@@ -398,25 +403,26 @@ namespace Unigram.Views.Host
 
         private void InitializeSessions(bool show, IList<ISessionService> items)
         {
+            var visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            AccountSelectorList.Visibility = visibility;
+            AddAccountItem.Visibility = visibility;
+            AccountSelectorSeparator.Visibility = visibility;
+
             var sessionsHash = GetSessionsHash(items);
             if (_accountSelectorSessionsHash == sessionsHash && _accountSelectorWasExpanded == show)
             {
                 RefreshSessionContainers(items);
-                TraceAccountSelector($"stage=refresh;expanded={(show ? 1 : 0)};source={items.Count};bound={NavigationViewList.Items.Count}");
+                TraceAccountSelector($"stage=refresh;expanded={(show ? 1 : 0)};source={items.Count};bound={AccountSelectorList.Items.Count}");
                 return;
             }
 
             var desiredSessions = show ? items : new List<ISessionService>();
-            var existingCount = 0;
-            while (existingCount < _navigationViewItems.Count && _navigationViewItems[existingCount] is ISessionService)
-            {
-                existingCount++;
-            }
+            var existingCount = _accountSelectorItems.Count;
 
             var commonCount = Math.Min(existingCount, desiredSessions.Count);
             for (int i = 0; i < commonCount; i++)
             {
-                if (!ReferenceEquals(_navigationViewItems[i], desiredSessions[i]))
+                if (!ReferenceEquals(_accountSelectorItems[i], desiredSessions[i]))
                 {
                     commonCount = 0;
                     break;
@@ -425,43 +431,17 @@ namespace Unigram.Views.Host
 
             for (int i = existingCount - 1; i >= commonCount; i--)
             {
-                _navigationViewItems.RemoveAt(i);
+                _accountSelectorItems.RemoveAt(i);
             }
 
             for (int i = commonCount; i < desiredSessions.Count; i++)
             {
-                _navigationViewItems.Insert(i, desiredSessions[i]);
-            }
-
-            var commandsIndex = desiredSessions.Count;
-            if (show)
-            {
-                if (commandsIndex >= _navigationViewItems.Count || !(_navigationViewItems[commandsIndex] is RootDestination commandDestination && commandDestination == RootDestination.AddAccount))
-                {
-                    _navigationViewItems.Insert(commandsIndex, RootDestination.AddAccount);
-                }
-
-                if (commandsIndex + 1 >= _navigationViewItems.Count || !(_navigationViewItems[commandsIndex + 1] is RootDestination separatorDestination && separatorDestination == RootDestination.Separator))
-                {
-                    _navigationViewItems.Insert(commandsIndex + 1, RootDestination.Separator);
-                }
-            }
-            else
-            {
-                if (commandsIndex < _navigationViewItems.Count && _navigationViewItems[commandsIndex] is RootDestination existingAddAccount && existingAddAccount == RootDestination.AddAccount)
-                {
-                    _navigationViewItems.RemoveAt(commandsIndex);
-                }
-
-                if (commandsIndex < _navigationViewItems.Count && _navigationViewItems[commandsIndex] is RootDestination existingSeparator && existingSeparator == RootDestination.Separator)
-                {
-                    _navigationViewItems.RemoveAt(commandsIndex);
-                }
+                _accountSelectorItems.Insert(i, desiredSessions[i]);
             }
 
             _accountSelectorSessionsHash = sessionsHash;
             _accountSelectorWasExpanded = show;
-            TraceAccountSelector($"stage=update;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={_navigationViewItems.OfType<ISessionService>().Count()};bound={NavigationViewList.Items.Count}");
+            TraceAccountSelector($"stage=update;expanded={(show ? 1 : 0)};source={items?.Count ?? 0};rows={_accountSelectorItems.Count};bound={AccountSelectorList.Items.Count}");
         }
 
         #region Recycling
@@ -471,9 +451,8 @@ namespace Unigram.Views.Host
             if (args.Item is ISessionService && (args.ItemContainer == null || args.ItemContainer is Controls.NavigationViewItem || args.ItemContainer is Controls.NavigationViewItemSeparator))
             {
                 args.ItemContainer = new ListViewItem();
-                args.ItemContainer.Style = NavigationViewList.ItemContainerStyle;
+                args.ItemContainer.Style = sender.ItemContainerStyle;
                 args.ItemContainer.ContentTemplate = Resources["SessionItemTemplate"] as DataTemplate;
-                args.ItemContainer.ContextRequested += OnContextRequested;
             }
             else if (args.Item is RootDestination destination)
             {
@@ -638,6 +617,19 @@ namespace Unigram.Views.Host
             Expanded.IsChecked = SettingsService.Current.IsAccountsSelectorExpanded;
 
             Automation.SetToolTip(Accounts, SettingsService.Current.IsAccountsSelectorExpanded ? Strings.Resources.AccDescrHideAccounts : Strings.Resources.AccDescrShowAccounts);
+        }
+
+        private void OnAccountItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is ISessionService session && !session.IsActive)
+            {
+                Switch(session);
+            }
+        }
+
+        private void OnAddAccountTapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            Switch(_lifetime.Create());
         }
 
         private void OnItemClick(object sender, ItemClickEventArgs e)

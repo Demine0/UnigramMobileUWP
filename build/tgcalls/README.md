@@ -3270,6 +3270,43 @@ both ways, relaunch, and verify the existing account opens directly to the main 
 without showing Start Messaging. Then create a new account and verify onboarding remains
 available.
 
+## 26.9.6249.0 — separate legacy account selector
+
+The legacy menu flyout continues to use its original account-row template, Add Account
+item, separator, and navigation destinations. The fragile mixed-item `NavigationViewList`
+has been split into two sibling controls:
+
+- `AccountSelectorList` is a bounded, non-scrolling session-only list. It retains the
+  existing `SessionItemTemplate`, account switching behavior, profile hydration, unread
+  badge, and single active-account indicator.
+- `NavigationViewList` now renders only `RootDestination` menu rows.
+
+This removes the cross-type container recycling that could hide a live second session
+until Add Account forced a separate list realization. The account source remains event
+driven; it is not continuously polled because the earlier diagnostics already proved both
+sessions were present before the mixed list failed to render one.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6249.0_ARM_SeparatedAccountSelector_Sideload.zip` | `504DFE33A6DBA7354D3CEA2CF656E6A61DE357660659245F97AE8C205D6EA414` | 65,110,531 |
+| `Unigram_26.9.6249.0_ARM.appx` | `157895BC3FD06843B9922AC8039BCC152115A459C64EA89809ADAB1A65F07CDB` | 58,564,122 |
+| `Unigram_26.9.6249.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6249.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and four ARM dependency APPXs.
+
+Device test: fully exit and relaunch with two authorized accounts. Open the legacy flyout
+before Add Account; both templated account rows must appear immediately, switch accounts
+when tapped, and have exactly one blue active-account indicator.
+
 ## 26.9.6248.0 — incremental legacy account rows
 
 The legacy flyout remains unchanged. The selector previously used
