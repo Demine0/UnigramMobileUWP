@@ -3032,3 +3032,19 @@ Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
 | `Unigram_26.9.6235.0_ARM_SoftwareSpeakerCap_Sideload.zip` | `D50C36E6BA9BEA46EA088D86E1DD7FB013E5015386F2670946DB31F818C0E6DA` | 65,102,488 |
 | `Unigram_26.9.6235.0_ARM.appx` | `DEA04D9B195D38C050D9F961573FE14A9811FFB8F7F69DF97E72ABDB35037DB7` | 58,553,022 |
 | `Unigram_26.9.6235.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6236.0 — route-state hardening
+
+The software gain request is now stored before attempting native endpoint selection.
+If the selected endpoint is unavailable, an earpiece, headset, or call teardown request
+still clears speaker attenuation immediately instead of retaining a prior speaker state.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6236.0_ARM_SoftwareSpeakerCap_Sideload.zip` | `5D795A23F0DA79A124C5F2E6AAAD0C295D68CC8E9CA4191C576E496A1061D3EE` | 65,101,881 |
+| `Unigram_26.9.6236.0_ARM.appx` | `5617C0699F056BBEC39B739B0A056A2A48B67FA2178897C0CC0F46B23B230FC6` | 58,553,850 |
+| `Unigram_26.9.6236.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |

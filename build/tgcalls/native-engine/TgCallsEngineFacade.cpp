@@ -1839,6 +1839,7 @@ public:
             ? _speakerPlayoutDeviceIndex.load(std::memory_order_acquire)
             : _earpiecePlayoutDeviceIndex.load(std::memory_order_acquire);
         const auto target = speakerphone ? "speakerphone" : "earpiece";
+        _speakerphoneGainState->speakerphoneRequested.store(speakerphone, std::memory_order_release);
         if (index < 0) {
             return std::string("unavailable;target=") + target;
         }
@@ -1846,7 +1847,6 @@ public:
         // This is the same API path current upstream Unigram uses for a selected
         // AudioOutputId. The '#<index>' selector is resolved by TgCalls on its media
         // queue, which stops and restarts playout around the device switch.
-        _speakerphoneGainState->speakerphoneRequested.store(speakerphone, std::memory_order_release);
         _instance->setAudioOutputDevice("#" + std::to_string(index));
         return std::string("queued;target=") + target + ";index=" + std::to_string(index) +
             (speakerphone ? ";gain=software_cap_pending" : ";gain=software_restore");
