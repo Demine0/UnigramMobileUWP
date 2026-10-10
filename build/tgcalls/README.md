@@ -3097,3 +3097,20 @@ Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
 | `Unigram_26.9.6238.0_ARM_FoundChatMessages_Sideload.zip` | `676E03DAA2FBE9D6F87837683790DF79283DCCA5D582E458F35D98D4AF97D629` | 65,102,165 |
 | `Unigram_26.9.6238.0_ARM.appx` | `5CA2DEDA9A4420803C713CD5C66C24D427F82D0D284C5F975D0781E6FEE9E270` | 58,555,102 |
 | `Unigram_26.9.6238.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6239.0 — account selector refresh
+
+The root account selector now subscribes to `Lifetime.Items.CollectionChanged` and
+rebuilds its navigation entries on the XAML dispatcher when a session is created or
+removed. Previously, creating a second account updated `Lifetime.Items` but left the
+selector’s independent footer collection stale until the user tapped Add Account again.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6239.0_ARM_AccountSelectorRefresh_Sideload.zip` | `2A97419A7F44014DDD2F004B582218FBCD5E07608BD8E9E81CAFFFB06417092D` | 65,098,225 |
+| `Unigram_26.9.6239.0_ARM.appx` | `DBE10DA071318F3CA67801D5BB51256F549A20D0B629DFD9398E2671AE557B1C` | 58,554,228 |
+| `Unigram_26.9.6239.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |

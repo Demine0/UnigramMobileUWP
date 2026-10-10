@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Numerics;
 using Telegram.Td.Api;
@@ -43,6 +44,7 @@ namespace Unigram.Views.Host
             InitializeComponent();
 
             _lifetime = TLContainer.Current.Lifetime;
+            _lifetime.Items.CollectionChanged += OnSessionsChanged;
 
             _navigationViewSelected = RootDestination.Chats;
             _navigationViewItems = new MvxObservableCollection<object>
@@ -243,6 +245,20 @@ namespace Unigram.Views.Host
             }
 
             InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+        }
+
+        private async void OnSessionsChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (Dispatcher.HasThreadAccess)
+            {
+                InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+                return;
+            }
+
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+            });
         }
 
         private async void InitializeUser(MainViewModel viewModel)
