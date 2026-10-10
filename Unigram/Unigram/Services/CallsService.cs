@@ -367,8 +367,8 @@ namespace Unigram.Services
 
                 VoIPControllerWrapper.UpdateServerConfig(ready.Config);
 
-                var logFile = Path.Combine(ApplicationData.Current.LocalFolder.Path, $"{SessionId}", $"voip{update.Call.Id}.txt");
-                var statsDumpFile = Path.Combine(ApplicationData.Current.LocalFolder.Path, $"{SessionId}", "tgvoip.statsDump.txt");
+                var logFile = Path.Combine(Views.SessionStorage.GetSessionDirectory(SessionId), $"voip{update.Call.Id}.txt");
+                var statsDumpFile = Path.Combine(Views.SessionStorage.GetSessionDirectory(SessionId), "tgvoip.statsDump.txt");
 
                 var call_packet_timeout_ms = CacheService.Options.CallPacketTimeoutMs;
                 var call_connect_timeout_ms = CacheService.Options.CallConnectTimeoutMs;

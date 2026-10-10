@@ -3427,3 +3427,34 @@ session containers (counts only), and `stage=layout` reports how many rows were 
 many have a non-zero measured height, their summed height and the panel height. The
 account-selector diagnostic budget was raised from 24 to 64 records so the first flyout open
 is never truncated. No names, identifiers, tokens, paths or message content are recorded.
+
+## 26.9.6251.0 - register every stored session at startup
+
+Fixes the long-standing defect where only one account appeared in the menu flyout until
+`Add Account` was tapped. The cause was never in the flyout.
+
+`ProtoService` relocates each session database to `LocalFolder\tdlib-experimental\{id}`
+so the experimental package can never touch the stable app's production database, but
+`ViewModelLocator.GetSessions` still enumerated numeric directories at the `LocalFolder`
+root. In the modern build that enumeration matched nothing, so `Configure` took its
+`fail` fallback and registered session 0 only. Session 1 existed on disk and was fully
+authorized, but no container was ever built for it, so it was absent from
+`TLContainer.GetSessions` and therefore from `LifetimeService.Items` and the selector.
+`LifetimeService.Create` derives the next id from `max(registered id) + 1`, so tapping
+`Add Account` chose id 1 and adopted the existing session-1 database - which is why the
+real second account appeared at that moment instead of a blank one.
+
+`SessionStorage` is now the single source of truth for the session storage root and the
+per-session directory. `ProtoService`, `ViewModelLocator`, `LifetimeService.Destroy`,
+`CallsService` voip log paths and `RootPage` diagnostics all resolve through it, so the
+layout can never again diverge between the writer and the readers.
+
+Under `MODERN_TDLIB` the enumerator no longer deletes a session directory that lacks the
+`UserId` settings marker; it skips and records `result=skipped;reason=no-marker`. An
+unexpected layout change must not be able to destroy an account that cannot be re-synced.
+
+Startup now records `sessions|stored=N;configured=M;fallback=0|1` - counts only, no
+identifiers or paths.
+
+Verified on device: both accounts are listed in the menu flyout immediately on launch,
+without tapping `Add Account`, on Alcatel Idol 4S, Lumia 1520 and Lumia 950 XL.

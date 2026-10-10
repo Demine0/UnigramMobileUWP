@@ -313,11 +313,7 @@ namespace Unigram.Services
 
             var parameters = ModernTdlibCompatibility.CreateTdlibParameters(
                 _settings.UseTestDC,
-#if MODERN_TDLIB
-                System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, "tdlib-experimental", $"{_session}"),
-#else
-                System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, $"{_session}"),
-#endif
+                Views.SessionStorage.GetSessionDirectory(_session),
                 _settings.FilesDirectory,
                 true,
                 true,

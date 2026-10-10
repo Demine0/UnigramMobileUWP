@@ -441,17 +441,7 @@ namespace Unigram.Views.Host
         {
             try
             {
-                var count = 0;
-                var folders = System.IO.Directory.GetDirectories(Windows.Storage.ApplicationData.Current.LocalFolder.Path);
-                foreach (var folder in folders)
-                {
-                    if (int.TryParse(System.IO.Path.GetFileName(folder), out int _))
-                    {
-                        count++;
-                    }
-                }
-
-                return count;
+                return SessionStorage.EnumerateStoredSessions().Count();
             }
             catch
             {
