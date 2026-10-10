@@ -2976,3 +2976,59 @@ Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
 | `Unigram_26.9.6233.0_ARM_InitialRouteEchoControl_Sideload.zip` | `7C96D95E802AE8F00904FBFF58DDA949169F655FE9FC9BECDDEE2775638F8CA1` | 65,102,511 |
 | `Unigram_26.9.6233.0_ARM.appx` | `AACFBD7239D5456870B68303066BE0DEC1CB6FD042CFDEF727A17C8FA35DE5EA` | 58,554,201 |
 | `Unigram_26.9.6233.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6234.0 — V2 hardware-cap diagnosis
+
+The `6233` Idol 4S trace validated the queued route but exposed two issues:
+
+- protocol `8.0.0` selects TgCalls `InstanceV2Impl`, whose `setOutputVolume()` is a
+  no-op, so the reported `gain=50` did not change the hardware output;
+- `MaxSpeakerVolume()` raised an access violation after the call. It was invoked by
+  temporary startup and periodic gain diagnostics, not by capture, signaling, or the
+  established call transport.
+
+The `6234` device test proved that a direct 50% UWP mixer cap reduced feedback, but the
+Alcatel then faulted at `set_speaker_volume`. This establishes that its speaker mixer is
+unsafe for writes as well as range reads. Do not reuse the direct hardware-cap approach.
+
+The previous APM diagnostic remains `apm=pending` on successful V2 calls. That
+instrumentation does not yet observe V2's processing instance, so it must not be
+treated as evidence that AEC, noise suppression, or gain control are disabled.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6234.0_ARM_V2SpeakerCap_Sideload.zip` | `44084F0611C88399361031523C693F40D3E92FB6331C5BB1F98D5BB0FF68344D` | 65,101,281 |
+| `Unigram_26.9.6234.0_ARM.appx` | `10EBE7023B10C48A168355940FE6C8E543B648C971B4CCCCEEF7ADA7DFA95A8F` | 58,552,744 |
+| `Unigram_26.9.6234.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6235.0 — software speakerphone attenuation
+
+The `6235` speaker-cap path makes no speaker-volume API calls. The retained WebRTC
+playout probe halves each 16-bit PCM render sample while speakerphone is selected and
+immediately returns to unscaled samples for earpiece, headset, or call teardown. This
+applies the same 50% acoustic cap without changing or persisting the handset's system
+volume.
+
+### Device test
+
+On an Idol 4S speakerphone call, `audio_output` must contain
+`gain=software_cap_pending`; subsequent `audio_level` diagnostics must report
+`speaker_gain=software_cap` with a positive `buffers` count. Switching to earpiece
+must report `gain=software_restore` and `speaker_gain=software_restore`. The process
+must remain alive through the call and teardown, with no `max_speaker_volume`,
+`set_speaker_volume`, or `voip.fault` record. The iOS peer should no longer hear the
+full-volume feedback loop.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6235.0_ARM_SoftwareSpeakerCap_Sideload.zip` | `D50C36E6BA9BEA46EA088D86E1DD7FB013E5015386F2670946DB31F818C0E6DA` | 65,102,488 |
+| `Unigram_26.9.6235.0_ARM.appx` | `DEA04D9B195D38C050D9F961573FE14A9811FFB8F7F69DF97E72ABDB35037DB7` | 58,553,022 |
+| `Unigram_26.9.6235.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |

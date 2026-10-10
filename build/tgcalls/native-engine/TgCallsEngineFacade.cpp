@@ -742,10 +742,18 @@ std::atomic<uint64_t> g_captureWindows{0};
 /// fault is in the device or the routing; if the samples are silent, the fault is
 /// upstream in decode, the receive stream, or the network.
 /// </summary>
+struct SpeakerphoneGainState {
+    std::atomic<bool> speakerphoneRequested{false};
+    std::atomic<uint64_t> attenuatedBuffers{0};
+};
+
 class PlayoutProbeAudioTransport : public webrtc::AudioTransport {
 public:
-    PlayoutProbeAudioTransport(webrtc::AudioTransport* inner)
-        : _inner(inner) {
+    PlayoutProbeAudioTransport(
+            webrtc::AudioTransport* inner,
+            std::shared_ptr<SpeakerphoneGainState> speakerphoneGainState)
+        : _inner(inner)
+        , _speakerphoneGainState(std::move(speakerphoneGainState)) {
         g_playoutPeakPermille.store(0, std::memory_order_relaxed);
         g_playoutSampleRate.store(0, std::memory_order_relaxed);
         g_playoutWindows.store(0, std::memory_order_release);
@@ -816,6 +824,7 @@ public:
         if (result == 0 && nBytesPerSample == sizeof(int16_t) * nChannels) {
             // nSamplesOut is already the interleaved total (frames * channels), not a
             // per-channel count, so it must not be multiplied by nChannels again.
+            ApplySpeakerphoneGain(static_cast<int16_t*>(audioSamples), nSamplesOut);
             Measure(
                 static_cast<const int16_t*>(audioSamples),
                 nSamplesOut,
@@ -841,6 +850,9 @@ public:
         if (bits_per_sample == 16) {
             // Here number_of_frames really is per-channel, so the interleaved total is
             // the product.
+            ApplySpeakerphoneGain(
+                static_cast<int16_t*>(audio_data),
+                number_of_frames * number_of_channels);
             Measure(
                 static_cast<const int16_t*>(audio_data),
                 number_of_frames * number_of_channels,
@@ -866,6 +878,18 @@ public:
     }
 
 private:
+    void ApplySpeakerphoneGain(int16_t* samples, size_t count) {
+        if (samples == nullptr || !_speakerphoneGainState ||
+                !_speakerphoneGainState->speakerphoneRequested.load(std::memory_order_acquire)) {
+            return;
+        }
+
+        for (size_t index = 0; index < count; ++index) {
+            samples[index] = static_cast<int16_t>(samples[index] / 2);
+        }
+        _speakerphoneGainState->attenuatedBuffers.fetch_add(1, std::memory_order_relaxed);
+    }
+
     void MeasureCapture(
             const int16_t* samples,
             size_t frames,
@@ -949,6 +973,7 @@ private:
     }
 
     webrtc::AudioTransport* _inner;
+    std::shared_ptr<SpeakerphoneGainState> _speakerphoneGainState;
 
     // Only touched on the render thread.
     uint64_t _windowFrames = 0;
@@ -1189,11 +1214,13 @@ public:
     DiagnosticAudioDeviceModule(
         webrtc::scoped_refptr<webrtc::AudioDeviceModule> impl,
         std::function<void(const std::string&)> report,
-        std::function<void()> released)
+        std::function<void()> released,
+        std::shared_ptr<SpeakerphoneGainState> speakerphoneGainState)
         : tgcalls::DefaultWrappedAudioDeviceModule(impl)
         , _raw(impl.get())
         , _report(std::move(report))
-        , _released(std::move(released)) {
+        , _released(std::move(released))
+        , _speakerphoneGainState(std::move(speakerphoneGainState)) {
     }
 
     ~DiagnosticAudioDeviceModule() {
@@ -1277,11 +1304,7 @@ public:
         return result;
     }
     int32_t StartPlayout() override {
-        const auto result = Guarded("start_playout", &webrtc::AudioDeviceModule::StartPlayout);
-        if (result == 0) {
-            EnsureSpeakerAudible();
-        }
-        return result;
+        return Guarded("start_playout", &webrtc::AudioDeviceModule::StartPlayout);
     }
 
     /// <summary>
@@ -1299,7 +1322,9 @@ public:
             return cleared;
         }
 
-        auto probe = std::make_unique<PlayoutProbeAudioTransport>(audioCallback);
+        auto probe = std::make_unique<PlayoutProbeAudioTransport>(
+            audioCallback,
+            _speakerphoneGainState);
         const auto result = Guarded(
             "register_audio_callback",
             static_cast<AdmAudioCallbackMethod>(&webrtc::AudioDeviceModule::RegisterAudioCallback),
@@ -1409,69 +1434,6 @@ private:
         _playoutProbe.release();
     }
 
-    /// <summary>
-    /// Playout can report success at every step and still be inaudible, because the
-    /// endpoint gain and mute state belong to the platform module and tgcalls never
-    /// touches them. This reads them and lifts a muted or zero-gain speaker. Only
-    /// numeric gain is reported, never device names.
-    ///
-    /// The correction is deliberately conservative: it runs at most once per module, it
-    /// only ever acts on a reading of exactly zero, and it raises to half scale rather
-    /// than maximum, so a deliberate user setting is neither repeatedly overridden nor
-    /// forced to full volume into an earpiece.
-    /// </summary>
-    void EnsureSpeakerAudible() {
-        bool muteAvailable = false;        if (Guarded("speaker_mute_available", &webrtc::AudioDeviceModule::SpeakerMuteIsAvailable, &muteAvailable) == 0 &&
-                muteAvailable) {
-            bool muted = false;
-            if (GuardedConst(
-                    "speaker_mute",
-                    static_cast<AdmConstBoolOutMethod>(&webrtc::AudioDeviceModule::SpeakerMute),
-                    &muted) == 0) {
-                Report(std::string("step=speaker_mute;phase=state;muted=") + (muted ? "1" : "0"));
-                if (muted) {
-                    Guarded(
-                        "set_speaker_mute",
-                        static_cast<AdmBoolInMethod>(&webrtc::AudioDeviceModule::SetSpeakerMute),
-                        false);
-                }
-            }
-        }
-
-        bool volumeAvailable = false;
-        if (Guarded("speaker_volume_available", &webrtc::AudioDeviceModule::SpeakerVolumeIsAvailable, &volumeAvailable) != 0 ||
-                !volumeAvailable) {
-            return;
-        }
-
-        uint32_t volume = 0;
-        uint32_t maxVolume = 0;
-        if (GuardedConst(
-                "speaker_volume",
-                static_cast<AdmVolumeOutMethod>(&webrtc::AudioDeviceModule::SpeakerVolume),
-                &volume) != 0) {
-            return;
-        }
-
-        if (GuardedConst(
-                "max_speaker_volume",
-                static_cast<AdmVolumeOutMethod>(&webrtc::AudioDeviceModule::MaxSpeakerVolume),
-                &maxVolume) != 0) {
-            return;
-        }
-
-        Report("step=speaker_volume;phase=state;volume=" + std::to_string(volume) +
-            ";max=" + std::to_string(maxVolume));
-
-        if (volume == 0 && maxVolume > 0 && !_speakerVolumeCorrected) {
-            _speakerVolumeCorrected = true;
-            Guarded(
-                "set_speaker_volume",
-                static_cast<AdmVolumeInMethod>(&webrtc::AudioDeviceModule::SetSpeakerVolume),
-                maxVolume / 2);
-        }
-    }
-
     template <typename Method, typename... Args>
     int32_t Guarded(const char* step, Method method, Args... arguments) const {
         AudioDeviceLifecycleScope scope(step);
@@ -1510,12 +1472,12 @@ private:
     webrtc::AudioDeviceModule* _raw;
     std::function<void(const std::string&)> _report;
     std::function<void()> _released;
+    std::shared_ptr<SpeakerphoneGainState> _speakerphoneGainState;
     std::unique_ptr<PlayoutProbeAudioTransport> _playoutProbe;
     std::mutex _initializationMutex;
     std::mutex _recordingInitializationMutex;
     bool _initialized = false;
     bool _recordingInitializationFailed = false;
-    bool _speakerVolumeCorrected = false;
 };
 std::string ToUtf8(const std::wstring& value) {
     if (value.empty()) {
@@ -1735,6 +1697,10 @@ public:
                 // an audio device failure observable instead of silently muting the call.
                 auto report = std::string("created=0");
                 auto playoutDeviceIndices = PlayoutDeviceIndices{};
+                auto speakerphoneGainState = std::shared_ptr<SpeakerphoneGainState>{};
+                if (const auto strong = weak.lock()) {
+                    speakerphoneGainState = strong->_speakerphoneGainState;
+                }
                 auto module = webrtc::AudioDeviceModule::Create(
                     webrtc::AudioDeviceModule::kPlatformDefaultAudio,
                     factory);
@@ -1751,7 +1717,8 @@ public:
                             if (const auto strong = weak.lock()) {
                                 strong->NotifyAudioDeviceReleased();
                             }
-                        });
+                        },
+                        std::move(speakerphoneGainState));
 
                     // TgCalls calls Init more than once during media setup. Initializing
                     // through the idempotent wrapper keeps the platform capture module to
@@ -1873,24 +1840,16 @@ public:
             : _earpiecePlayoutDeviceIndex.load(std::memory_order_acquire);
         const auto target = speakerphone ? "speakerphone" : "earpiece";
         if (index < 0) {
-            if (!speakerphone) {
-                _instance->setOutputVolume(1.0f);
-            }
             return std::string("unavailable;target=") + target;
         }
 
         // This is the same API path current upstream Unigram uses for a selected
         // AudioOutputId. The '#<index>' selector is resolved by TgCalls on its media
         // queue, which stops and restarts playout around the device switch.
+        _speakerphoneGainState->speakerphoneRequested.store(speakerphone, std::memory_order_release);
         _instance->setAudioOutputDevice("#" + std::to_string(index));
-        // The platform's software AEC3 is enabled, but this phone has no hardware AEC
-        // and its loudspeaker at full session gain can still create a physical feedback
-        // loop. The TgCalls calls are serialized after the device switch, so the cap is
-        // applied to the newly selected speaker endpoint and earpiece selection restores
-        // the session gain observed before the cap.
-        _instance->setOutputVolume(speakerphone ? 0.5f : 1.0f);
         return std::string("queued;target=") + target + ";index=" + std::to_string(index) +
-            (speakerphone ? ";gain=50" : ";gain=restore");
+            (speakerphone ? ";gain=software_cap_pending" : ";gain=software_restore");
     }
 
     void SetNetworkType(NetworkType value) {
@@ -1924,28 +1883,11 @@ public:
         std::string status = counters + ";created=1;recording=" + (module->Recording() ? "1" : "0") +
             ";playing=" + (module->Playing() ? "1" : "0");
 
-        // Playout can report "playing" while nothing is audible, because the endpoint
-        // volume and mute state are owned by the platform module rather than by tgcalls.
-        // Only numeric gain levels are reported here, never device names or identifiers.
-        bool available = false;
-        if (module->SpeakerVolumeIsAvailable(&available) == 0 && available) {
-            uint32_t volume = 0;
-            uint32_t maxVolume = 0;
-            if (module->SpeakerVolume(&volume) == 0 && module->MaxSpeakerVolume(&maxVolume) == 0) {
-                status += ";speaker_volume=" + std::to_string(volume) + "/" + std::to_string(maxVolume);
-            }
+        if (_speakerphoneGainState->speakerphoneRequested.load(std::memory_order_acquire)) {
+            status += ";speaker_gain=software_cap;buffers=" + std::to_string(
+                _speakerphoneGainState->attenuatedBuffers.load(std::memory_order_relaxed));
         } else {
-            status += ";speaker_volume=unavailable";
-        }
-
-        bool muteAvailable = false;
-        if (module->SpeakerMuteIsAvailable(&muteAvailable) == 0 && muteAvailable) {
-            bool muted = false;
-            if (module->SpeakerMute(&muted) == 0) {
-                status += ";speaker_mute=" + std::string(muted ? "1" : "0");
-            }
-        } else {
-            status += ";speaker_mute=unavailable";
+            status += ";speaker_gain=software_restore";
         }
 
         // The decisive field: whether WebRTC is handing the device non-silent samples.
@@ -2206,6 +2148,7 @@ private:
     std::atomic<int> _earpiecePlayoutDeviceIndex{-1};
     std::atomic<int> _speakerPlayoutDeviceIndex{-1};
     webrtc::scoped_refptr<webrtc::AudioDeviceModule> _audioDeviceModule;
+    std::shared_ptr<SpeakerphoneGainState> _speakerphoneGainState = std::make_shared<SpeakerphoneGainState>();
     CallConfiguration _configuration;
     std::shared_ptr<tgcalls::VideoCaptureInterface> _videoCapture;
     VideoOutputPtr _localVideoOutput;
