@@ -3154,3 +3154,43 @@ Device acceptance remains required: expand the selector immediately after adding
 signing in to a second account, then confirm both rows are present with no duplicates after
 switching and relaunching. In a chat with a known pin, verify that the pinned banner appears
 at the top and that the pinned-messages view can page through the results.
+
+## 26.9.6243.0 — upstream account-profile hydration
+
+The `6242` pinned-message fix was confirmed on device: a known pin now appears at the top
+of its chat. The account selector still needed a further upstream comparison. Current
+upstream Unigram `develop` at `bab9f3cf3de9adc16312393eb5d7d8bbd1d25dd3` uses
+`LifetimeService.GetItemsForMenu` to maintain a stable, user-selectable session ordering
+and a hash to avoid unnecessary rebuilds. More importantly for this issue, its account-row
+container explicitly sends `GetUser(session.UserId)` whenever the session's cached profile
+is absent.
+
+The experimental UWP selector previously only returned when the cache lookup failed (and
+`6242` changed that blank row to `Loading...`). `6243` now follows upstream's hydration
+behavior. It requests the missing user once per session slot, retains the returned profile
+only in the root page's in-memory session cache, and atomically refreshes the selector on
+the XAML dispatcher. This deliberately does not retain identities outside the process or
+log account details. It also does not port upstream's drag-reordering feature, which is
+outside this targeted Windows 10 Mobile correction.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6243.0_ARM_UpstreamAccountHydration_Sideload.zip` | `711F10DE0E0DE5D6A6D1C665F5D4FCC6809651130AABC06380926F8352A89CD9` | 65,113,434 |
+| `Unigram_26.9.6243.0_ARM.appx` | `F20FE11274D3F50FD9549E2F05C7224F291B5736C0F9BCEF558222AB0452D8F8` | 58,563,746 |
+| `Unigram_26.9.6243.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully and APPX signature verification passed. The package keeps
+the isolated `49197Wirdschon.UnigramMobileTdlibExperimental` identity, version
+`26.9.6243.0`, and ARM architecture. Its payload includes `Telegram.Td.dll`,
+`Telegram.Td.winmd`, `ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; it contains
+no `Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP has exactly six root files:
+the APPX, CER, and the four ARM dependency APPXs.
+
+Device acceptance: after signing in to a second account, open the account selector before
+tapping Add Account. Its row should now appear immediately; if it first says `Loading...`,
+it should change to the account name and avatar after the privacy-safe `GetUser` request
+returns. Confirm that switching and relaunching introduce neither duplicate nor blank rows.

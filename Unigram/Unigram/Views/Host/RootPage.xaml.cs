@@ -33,6 +33,8 @@ namespace Unigram.Views.Host
 
         private RootDestination _navigationViewSelected;
         private MvxObservableCollection<object> _navigationViewItems;
+        private readonly Dictionary<int, User> _sessionUsers = new Dictionary<int, User>();
+        private readonly HashSet<int> _pendingSessionUsers = new HashSet<int>();
 
         public RootPage(NavigationService service)
         {
@@ -296,6 +298,28 @@ namespace Unigram.Views.Host
             return TLContainer.Current.GetSessions().OrderBy(session => session.Id).ToList();
         }
 
+        private void RequestSessionUser(ISessionService session)
+        {
+            if (session.UserId == 0 || !_pendingSessionUsers.Add(session.Id))
+            {
+                return;
+            }
+
+            session.ProtoService.Send(new GetUser(session.UserId), response =>
+            {
+                _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    _pendingSessionUsers.Remove(session.Id);
+
+                    if (response is User user && user.Id == session.UserId)
+                    {
+                        _sessionUsers[session.Id] = user;
+                        InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
+                    }
+                });
+            });
+        }
+
         private void InitializeSessions(bool show, IList<ISessionService> items)
         {
             var navigationItems = _navigationViewItems.ToList();
@@ -401,6 +425,16 @@ namespace Unigram.Views.Host
                 }
 
                 var user = session.ProtoService.GetUser(session.UserId);
+                if (user == null)
+                {
+                    _sessionUsers.TryGetValue(session.Id, out user);
+                }
+
+                if (user == null)
+                {
+                    RequestSessionUser(session);
+                }
+
                 if (args.Phase == 0)
                 {
                     var title = content.Children[2] as TextBlock;
