@@ -244,20 +244,20 @@ namespace Unigram.Views.Host
                 InitializeUser(main.ViewModel);
             }
 
-            InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+            InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
         }
 
         private async void OnSessionsChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (Dispatcher.HasThreadAccess)
             {
-                InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+                InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
                 return;
             }
 
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+                InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
             });
         }
 
@@ -291,22 +291,29 @@ namespace Unigram.Views.Host
             Automation.SetToolTip(Accounts, SettingsService.Current.IsAccountsSelectorExpanded ? Strings.Resources.AccDescrHideAccounts : Strings.Resources.AccDescrShowAccounts);
         }
 
+        private static IList<ISessionService> GetSessionsSnapshot()
+        {
+            return TLContainer.Current.GetSessions().OrderBy(session => session.Id).ToList();
+        }
+
         private void InitializeSessions(bool show, IList<ISessionService> items)
         {
-            for (int i = 0; i < _navigationViewItems.Count; i++)
+            var navigationItems = _navigationViewItems.ToList();
+
+            for (int i = 0; i < navigationItems.Count; i++)
             {
-                if (_navigationViewItems[i] is ISessionService)
+                if (navigationItems[i] is ISessionService)
                 {
-                    _navigationViewItems.RemoveAt(i);
+                    navigationItems.RemoveAt(i);
                     i--;
                 }
-                else if (_navigationViewItems[i] is RootDestination viewItem && viewItem == RootDestination.AddAccount)
+                else if (navigationItems[i] is RootDestination viewItem && viewItem == RootDestination.AddAccount)
                 {
-                    _navigationViewItems.RemoveAt(i);
+                    navigationItems.RemoveAt(i);
 
-                    if (i < _navigationViewItems.Count && _navigationViewItems[i] is RootDestination destination && destination == RootDestination.Separator)
+                    if (i < navigationItems.Count && navigationItems[i] is RootDestination destination && destination == RootDestination.Separator)
                     {
-                        _navigationViewItems.RemoveAt(i);
+                        navigationItems.RemoveAt(i);
                         break;
                     }
                 }
@@ -314,14 +321,16 @@ namespace Unigram.Views.Host
 
             if (show && items != null)
             {
-                _navigationViewItems.Insert(0, RootDestination.Separator);
-                _navigationViewItems.Insert(0, RootDestination.AddAccount);
+                navigationItems.Insert(0, RootDestination.Separator);
+                navigationItems.Insert(0, RootDestination.AddAccount);
 
                 for (int k = items.Count - 1; k >= 0; k--)
                 {
-                    _navigationViewItems.Insert(0, items[k]);
+                    navigationItems.Insert(0, items[k]);
                 }
             }
+
+            _navigationViewItems.ReplaceWith(navigationItems);
         }
 
         #region Recycling
@@ -392,19 +401,14 @@ namespace Unigram.Views.Host
                 }
 
                 var user = session.ProtoService.GetUser(session.UserId);
-                if (user == null)
-                {
-                    return;
-                }
-
                 if (args.Phase == 0)
                 {
                     var title = content.Children[2] as TextBlock;
-                    title.Text = user.GetFullName();
+                    title.Text = user?.GetFullName() ?? Strings.Resources.Loading;
 
-                    Automation.SetToolTip(content, user.GetFullName());
+                    Automation.SetToolTip(content, title.Text);
                 }
-                else if (args.Phase == 2)
+                else if (args.Phase == 2 && user != null)
                 {
                     var photo = content.Children[0] as ProfilePicture;
                     photo.Source = PlaceholderHelper.GetUser(session.ProtoService, user, 28);
@@ -488,7 +492,7 @@ namespace Unigram.Views.Host
         {
             SettingsService.Current.IsAccountsSelectorExpanded = !SettingsService.Current.IsAccountsSelectorExpanded;
 
-            InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, _lifetime.Items);
+            InitializeSessions(SettingsService.Current.IsAccountsSelectorExpanded, GetSessionsSnapshot());
             Expanded.IsChecked = SettingsService.Current.IsAccountsSelectorExpanded;
 
             Automation.SetToolTip(Accounts, SettingsService.Current.IsAccountsSelectorExpanded ? Strings.Resources.AccDescrHideAccounts : Strings.Resources.AccDescrShowAccounts);

@@ -698,7 +698,7 @@ namespace Unigram.ViewModels
                 }
                 else if (_type == DialogType.Pinned)
                 {
-                    func = new SearchChatMessages(chat.Id, null, string.Empty, null, maxId.Value, 0, 50, new SearchMessagesFilterPinned());
+                    func = ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, maxId.Value, 0, 50, new SearchMessagesFilterPinned());
                 }
                 else
                 {
@@ -706,7 +706,7 @@ namespace Unigram.ViewModels
                 }
 
                 var response = await ProtoService.SendAsync(func);
-                if (response is Messages messages)
+                if (TryGetMessageList(response, out IList<Message> messages))
                 {
                     if (_chat?.Id != chat.Id)
                     {
@@ -716,13 +716,13 @@ namespace Unigram.ViewModels
                         return;
                     }
 
-                    if (messages.MessagesValue.Count > 0)
+                    if (messages.Count > 0)
                     {
                         SetScrollMode(ItemsUpdatingScrollMode.KeepLastItemInView, force);
                         Logs.Logger.Debug(Logs.Target.Chat, "Setting scroll mode to KeepLastItemInView");
                     }
 
-                    var replied = messages.MessagesValue.OrderByDescending(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
+                    var replied = messages.OrderByDescending(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
                     await ProcessMessagesAsync(chat, replied);
 
                     foreach (var message in replied)
@@ -827,7 +827,7 @@ namespace Unigram.ViewModels
                 }
                 else if (_type == DialogType.Pinned)
                 {
-                    func = new SearchChatMessages(chat.Id, null, string.Empty, null, maxId.Value, -49, 50, new SearchMessagesFilterPinned());
+                    func = ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, maxId.Value, -49, 50, new SearchMessagesFilterPinned());
                 }
                 else
                 {
@@ -835,7 +835,7 @@ namespace Unigram.ViewModels
                 }
 
                 var response = await ProtoService.SendAsync(func);
-                if (response is Messages messages)
+                if (TryGetMessageList(response, out IList<Message> messages))
                 {
                     if (_chat?.Id != chat.Id)
                     {
@@ -845,7 +845,7 @@ namespace Unigram.ViewModels
                         return;
                     }
 
-                    if (messages.MessagesValue.Any(x => !Items.ContainsKey(x.Id)))
+                    if (messages.Any(x => !Items.ContainsKey(x.Id)))
                     {
                         SetScrollMode(ItemsUpdatingScrollMode.KeepItemsInView, true);
                         Logs.Logger.Debug(Logs.Target.Chat, "Setting scroll mode to KeepItemsInView");
@@ -858,7 +858,7 @@ namespace Unigram.ViewModels
 
                     var added = false;
 
-                    var replied = messages.MessagesValue.OrderBy(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
+                    var replied = messages.OrderBy(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
                     await ProcessMessagesAsync(chat, replied);
 
                     foreach (var message in replied)
@@ -1136,6 +1136,21 @@ namespace Unigram.ViewModels
             }
         }
 
+        private static bool TryGetMessageList(BaseObject response, out IList<Message> messages)
+        {
+            if (response is Messages legacy)
+            {
+                messages = legacy.MessagesValue;
+                return true;
+            }
+
+            return ModernTdlibCompatibility.TryGetSearchChatMessages(
+                response,
+                out int ignoredTotalCount,
+                out messages,
+                out long ignoredNextFromMessageId);
+        }
+
         private async Task LoadPinnedMessagesSliceCoreAsync(long maxId, VerticalAlignment direction)
         {
 #endif
@@ -1209,15 +1224,15 @@ namespace Unigram.ViewModels
                 limit = 100;
             }
 
-            var response = await ProtoService.SendAsync(new SearchChatMessages(chat.Id, null, string.Empty, null, maxId, offset, limit, new SearchMessagesFilterPinned()));
-            if (response is Messages messages)
+            var response = await ProtoService.SendAsync(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, maxId, offset, limit, new SearchMessagesFilterPinned()));
+            if (TryGetMessageList(response, out IList<Message> messages))
             {
                 if (direction == VerticalAlignment.Center)
                 {
                     PinnedMessages.Clear();
                 }
 
-                var replied = messages.MessagesValue.OrderByDescending(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
+                var replied = messages.OrderByDescending(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
 
                 foreach (var message in replied)
                 {
@@ -1323,7 +1338,7 @@ namespace Unigram.ViewModels
                 }
                 else if (_type == DialogType.Pinned)
                 {
-                    func = new SearchChatMessages(chat.Id, null, string.Empty, null, maxId, -25, 50, new SearchMessagesFilterPinned());
+                    func = ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, maxId, -25, 50, new SearchMessagesFilterPinned());
                 }
                 else
                 {
@@ -1342,7 +1357,7 @@ namespace Unigram.ViewModels
                 }
 
                 var response = await send;
-                if (response is Messages messages)
+                if (TryGetMessageList(response, out IList<Message> messages))
                 {
                     if (_chat?.Id != chat.Id)
                     {
@@ -1355,13 +1370,13 @@ namespace Unigram.ViewModels
 
                     _groupedMessages.Clear();
 
-                    if (messages.MessagesValue.Count > 0)
+                    if (messages.Count > 0)
                     {
                         SetScrollMode(ItemsUpdatingScrollMode.KeepLastItemInView, true);
                         Logs.Logger.Debug(Logs.Target.Chat, "Setting scroll mode to KeepLastItemInView");
                     }
 
-                    var replied = messages.MessagesValue.OrderBy(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
+                    var replied = messages.OrderBy(x => x.Id).Select(x => _messageFactory.Create(this, x)).ToList();
                     await ProcessMessagesAsync(chat, replied);
 
                     long lastReadMessageId;

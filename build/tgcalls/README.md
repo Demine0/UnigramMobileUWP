@@ -3114,3 +3114,43 @@ Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
 | `Unigram_26.9.6239.0_ARM_AccountSelectorRefresh_Sideload.zip` | `2A97419A7F44014DDD2F004B582218FBCD5E07608BD8E9E81CAFFFB06417092D` | 65,098,225 |
 | `Unigram_26.9.6239.0_ARM.appx` | `DBE10DA071318F3CA67801D5BB51256F549A20D0B629DFD9398E2671AE557B1C` | 58,554,228 |
 | `Unigram_26.9.6239.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6242.0 — account selector and pinned-message response fixes
+
+The previous selector refresh was insufficient on Windows 10 Mobile because it rebuilt
+the virtualized footer by raising individual removal and insertion notifications. A
+recycled session container could remain blank immediately above Add Account until another
+action happened to rebuild the list. The selector now snapshots live session containers in
+stable slot order and replaces the footer collection with one reset. An account whose own
+user record has not reached the local cache renders a visible localized `Loading...` row
+rather than an empty invisible container. `SessionService` also formally subscribes to
+`UpdateUser`, enabling its pre-existing lifecycle refresh when the signed-in account's
+profile arrives.
+
+Modern TDLib returns `FoundChatMessages` from `SearchChatMessages`. Pinned-message
+loading still expected only legacy `Messages`, so both the chat banner and pinned-history
+navigation could discard successful search results. The shared compatibility parser now
+normalizes these calls, and the request construction uses the ARM-safe property-initialized
+factory already used by the shared-media migration.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6242.0_ARM_AccountSelectorAndPinnedMessages_Sideload.zip` | `FA758EEB67EE08E6E3D508BD118FC87F861726C7767BAEC4DE7EA598A481548F` | 65,093,628 |
+| `Unigram_26.9.6242.0_ARM.appx` | `A49CD370C56DD93370450173425F002568DAD012128E95CCE74E84A1ACEE45A4` | 58,556,031 |
+| `Unigram_26.9.6242.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+Release|ARM rebuilt successfully. Signature verification succeeded; the package identity
+is `49197Wirdschon.UnigramMobileTdlibExperimental`, version `26.9.6242.0`, architecture
+`arm`; the payload contains `Telegram.Td.dll`, `Telegram.Td.winmd`,
+`ModernCallsBridge.dll`, and `Unigram.Native.Tasks.dll`; and it contains no
+`Constants.Secret.cs`, PFX, or PDB files. The sideload ZIP contains exactly the signed APPX,
+CER, and four ARM dependency APPXs.
+
+Device acceptance remains required: expand the selector immediately after adding and
+signing in to a second account, then confirm both rows are present with no duplicates after
+switching and relaunching. In a chat with a known pin, verify that the pinned banner appears
+at the top and that the pinned-messages view can page through the results.

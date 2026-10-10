@@ -26,7 +26,7 @@ namespace Unigram.Services
         void RequestQrCodeAuthentication();
     }
 
-    public class SessionService : TLViewModelBase, ISessionService, IHandle<UpdateUnreadMessageCount>, IHandle<UpdateUnreadChatCount>, IHandle<UpdateAuthorizationState>, IHandle<UpdateConnectionState>
+    public class SessionService : TLViewModelBase, ISessionService, IHandle<UpdateUser>, IHandle<UpdateUnreadMessageCount>, IHandle<UpdateUnreadChatCount>, IHandle<UpdateAuthorizationState>, IHandle<UpdateConnectionState>
     {
         private readonly ILifetimeService _lifetimeService;
         private readonly int _id;
