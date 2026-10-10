@@ -1910,7 +1910,15 @@ namespace Unigram.Services
 
                 if (dialog.IncludeDebugLogs && dialog.Rating <= 3)
                 {
-                    var file = await ApplicationData.Current.LocalFolder.TryGetItemAsync(Path.Combine($"{SessionId}", $"voip{callId}.txt")) as StorageFile;
+                    var logPath = Path.Combine(Views.SessionStorage.GetSessionDirectory(SessionId), $"voip{callId}.txt");
+
+                    StorageFile file = null;
+                    try
+                    {
+                        file = await StorageFile.GetFileFromPathAsync(logPath);
+                    }
+                    catch { }
+
                     if (file == null)
                     {
                         return;

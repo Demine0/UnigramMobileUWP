@@ -217,6 +217,13 @@
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
+  <!-- Keeps the native background task's session storage layout in sync with the managed
+       SessionStorage helper, which isolates per-session databases in the modern build. -->
+  <ItemDefinitionGroup Condition="'$(UseModernTdlib)' == 'true'">
+    <ClCompile>
+      <PreprocessorDefinitions>MODERN_TDLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="NotificationTask.h" />

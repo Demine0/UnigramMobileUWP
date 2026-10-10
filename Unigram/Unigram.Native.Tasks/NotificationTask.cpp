@@ -328,8 +328,18 @@ String^ NotificationTask::GetPicture(JsonObject^ custom, String^ group, String^ 
 				return nullptr;
 			}
 
+			// Must match SessionStorage.Root on the managed side: the modern TDLib build
+			// isolates per-session storage, and the avatar is stored under the session that
+			// actually received the push, never an assumed session 0.
+			std::wstring root = L"ms-appdata:///local/";
+#ifdef MODERN_TDLIB
+			root += L"tdlib-experimental/";
+#endif
+
 			std::wstringstream almost;
-			almost << L"ms-appdata:///local/0/profile_photos/"
+			almost << root
+				<< (session != nullptr ? session->Data() : L"0")
+				<< L"/profile_photos/"
 				<< volume
 				<< L"_"
 				<< local_id->Data()

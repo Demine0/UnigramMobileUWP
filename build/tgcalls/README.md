@@ -3458,3 +3458,23 @@ identifiers or paths.
 
 Verified on device: both accounts are listed in the menu flyout immediately on launch,
 without tapping `Add Account`, on Alcatel Idol 4S, Lumia 1520 and Lumia 950 XL.
+
+## 26.9.6253.0 - session-scoped notification avatars and voip log read path
+
+Two follow-ups from the code review of the session registration fix.
+
+`NotificationTask::GetPicture` built its avatar URI from a hardcoded
+`ms-appdata:///local/0/profile_photos/`. It already received the resolved session id
+and ignored it, so a push for the second account pointed at the first account's avatar
+directory, and under the experimental build the root was wrong for every account because
+the databases live under `tdlib-experimental`. The URI is now assembled from the real
+session id, with the `tdlib-experimental/` segment added under `MODERN_TDLIB`.
+
+`Unigram.Native.Tasks.vcxproj` did not define `MODERN_TDLIB`; the define is now added
+by an `ItemDefinitionGroup` conditioned on `UseModernTdlib`. Confirmed present on the
+`CL.exe` command line in a detailed-verbosity build of the project.
+
+`CallsService` attached voip debug logs to a call rating by reading from the old
+root-relative layout after the write path had already moved to `SessionStorage`. The
+read path now resolves through `SessionStorage` as well, so the attachment is not
+silently empty.
