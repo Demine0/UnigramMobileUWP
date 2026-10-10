@@ -16,6 +16,7 @@ using Unigram.Views.Popups;
 using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
+using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -1650,11 +1651,12 @@ namespace Unigram.Services
                 string teardown;
                 try
                 {
-                    // The native session detaches both outputs and joins their render
-                    // threads. Do that before removing their XAML hosts: otherwise a
-                    // composition thread can still draw into a visual the UI released.
+                    // CompositionVideoOutput owns WinRT composition objects. Detach it
+                    // from the XAML apartment before native teardown joins its render
+                    // thread, rather than releasing a SpriteVisual from the TDLib worker.
                     WriteModernMediaDiagnostic(
                         "result=video_output;state=teardown_begin;local=1;remote=1");
+                    DetachModernVideoOutputs(controller, callPage);
                     teardown = controller.Teardown();
                     WriteModernMediaDiagnostic(
                         "result=video_output;state=teardown_end;local=1;remote=1");
@@ -1688,6 +1690,31 @@ namespace Unigram.Services
                 ResetModernMediaDiagnostics();
                 ClearPendingModernSignalingData(callId);
             }
+        }
+
+        private static void DetachModernVideoOutputs(ModernCalls.AudioCallSession controller, VoIPPage callPage)
+        {
+            if (controller == null || callPage?.Dispatcher == null)
+            {
+                return;
+            }
+
+            Action detach = () =>
+            {
+                controller.ClearVideoOutput(true);
+                controller.ClearVideoOutput(false);
+            };
+
+            if (callPage.Dispatcher.HasThreadAccess)
+            {
+                detach();
+                return;
+            }
+
+            callPage.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => detach())
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
         }
 
         /// <summary>

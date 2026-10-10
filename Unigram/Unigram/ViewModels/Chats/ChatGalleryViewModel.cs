@@ -68,7 +68,7 @@ namespace Unigram.ViewModels.Chats
 
                 var response = await ProtoService.SendAsync(
 #if MODERN_TDLIB
-                    new SearchChatMessages(_chatId, ModernTdlibCompatibility.GetMessageTopic(_threadId), string.Empty, null, fromMessageId, offset, limit, _filter)
+                    ModernTdlibCompatibility.CreateSearchChatMessages(_chatId, ModernTdlibCompatibility.GetMessageTopic(_threadId), string.Empty, null, fromMessageId, offset, limit, _filter)
 #else
                     new SearchChatMessages(_chatId, string.Empty, null, fromMessageId, offset, limit, _filter, _threadId)
 #endif
@@ -123,7 +123,7 @@ namespace Unigram.ViewModels.Chats
 
                 var response = await ProtoService.SendAsync(
 #if MODERN_TDLIB
-                    new SearchChatMessages(_chatId, ModernTdlibCompatibility.GetMessageTopic(_threadId), string.Empty, null, fromMessageId, offset, limit, _filter)
+                    ModernTdlibCompatibility.CreateSearchChatMessages(_chatId, ModernTdlibCompatibility.GetMessageTopic(_threadId), string.Empty, null, fromMessageId, offset, limit, _filter)
 #else
                     new SearchChatMessages(_chatId, string.Empty, null, fromMessageId, offset, limit, _filter, _threadId)
 #endif
@@ -166,7 +166,7 @@ namespace Unigram.ViewModels.Chats
 
                 var response = await ProtoService.SendAsync(
 #if MODERN_TDLIB
-                    new SearchChatMessages(_chatId, ModernTdlibCompatibility.GetMessageTopic(_threadId), string.Empty, null, fromMessageId, offset, limit, _filter)
+                    ModernTdlibCompatibility.CreateSearchChatMessages(_chatId, ModernTdlibCompatibility.GetMessageTopic(_threadId), string.Empty, null, fromMessageId, offset, limit, _filter)
 #else
                     new SearchChatMessages(_chatId, string.Empty, null, fromMessageId, offset, limit, _filter, _threadId)
 #endif

@@ -3048,3 +3048,31 @@ Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
 | `Unigram_26.9.6236.0_ARM_SoftwareSpeakerCap_Sideload.zip` | `5D795A23F0DA79A124C5F2E6AAAD0C295D68CC8E9CA4191C576E496A1061D3EE` | 65,101,881 |
 | `Unigram_26.9.6236.0_ARM.appx` | `5617C0699F056BBEC39B739B0A056A2A48B67FA2178897C0CC0F46B23B230FC6` | 58,553,850 |
 | `Unigram_26.9.6236.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |
+
+## 26.9.6237.0 — experimental display identity
+
+The application’s VisualElements and tile ShortName appear as
+`Unigram Mobile TDLib Experimental` in the app list. The package Properties display
+name remains `Unigram Mobile` because the publisher’s app-reservation validation only
+permits registered display names. Its package identity remains
+`49197Wirdschon.UnigramMobileTdlibExperimental`, preserving its separate LocalState and
+TDLib database space from the stable app.
+
+This package also:
+
+- detaches modern video composition outputs on the XAML UI thread before native call
+  teardown, preventing the renderer from releasing a `SpriteVisual` on the TDLib worker
+  after a remote video-call hangup;
+- uses typed property initialization for modern `SearchChatMessages` requests and fixes
+  incremental pagination, restoring populated Media, Files, Links, Music, and Voice
+  sections in group shared media.
+
+### Artifacts
+
+Under `%LOCALAPPDATA%\UnigramTdlibExperiment\artifacts\`:
+
+| File | SHA-256 | Bytes |
+| --- | --- | ---: |
+| `Unigram_26.9.6237.0_ARM_VideoTeardownAndSharedMedia_Sideload.zip` | `E489C66E25C3A4057BC45B9756232DB326FD4405A322C98B0400EF20352D02EB` | 65,101,840 |
+| `Unigram_26.9.6237.0_ARM.appx` | `94663B1E2F589DF400B16B8A03D6792521F7577FC8DFAAD8BBCCC23F479B94D9` | 58,552,987 |
+| `Unigram_26.9.6237.0_ARM.cer` | `5D891C3D3F5DF85A556C01BD5BA58C6837A736776E4D781CDEE9790060A72B85` | 832 |

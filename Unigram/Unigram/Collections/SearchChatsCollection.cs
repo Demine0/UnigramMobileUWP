@@ -264,7 +264,7 @@ namespace Unigram.Collections
                     Function function;
                     if (chat != null)
                     {
-                        function = new SearchChatMessages(chat.Id, null, _query, null, 0, 0, 100, content?.Filter);
+                        function = ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, _query, null, 0, 0, 100, content?.Filter);
                     }
                     else
                     {

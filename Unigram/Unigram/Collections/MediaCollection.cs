@@ -36,7 +36,7 @@ namespace Unigram.Collections
 
                 var response = await _protoService.SendAsync(
 #if MODERN_TDLIB
-                    new SearchChatMessages(_chatId, null, _query, null, _lastMaxId, 0, 50, _filter)
+                    ModernTdlibCompatibility.CreateSearchChatMessages(_chatId, null, _query, null, _lastMaxId, 0, 50, _filter)
 #else
                     new SearchChatMessages(_chatId, _query, null, _lastMaxId, 0, 50, _filter, 0)
 #endif
@@ -322,7 +322,7 @@ namespace Unigram.Collections
             {
                 var response = await _protoService.SendAsync(
 #if MODERN_TDLIB
-                    new SearchChatMessages(_chatId, null, _query, null, _lastMaxId, 0, 50, _filter)
+                    ModernTdlibCompatibility.CreateSearchChatMessages(_chatId, null, _query, null, _lastMaxId, 0, 50, _filter)
 #else
                     new SearchChatMessages(_chatId, _query, null, _lastMaxId, 0, 50, _filter, 0)
 #endif

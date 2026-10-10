@@ -63,31 +63,31 @@ namespace Unigram.Views.Chats
 
         public void UpdateSharedCount(Chat chat)
         {
-            ViewModel.ProtoService.Send(new SearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterPhotoAndVideo()), result =>
+            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterPhotoAndVideo()), result =>
             {
                 if (result is Messages messages)
                     _mediaHeader.Subtitle = messages.TotalCount.ToString();
             });
 
-            ViewModel.ProtoService.Send(new SearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterDocument()), result =>
+            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterDocument()), result =>
             {
                 if (result is Messages messages)
                     _filesHeader.Subtitle = messages.TotalCount.ToString();
             });
 
-            ViewModel.ProtoService.Send(new SearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterUrl()), result =>
+            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterUrl()), result =>
             {
                 if (result is Messages messages)
                     _linksHeader.Subtitle = messages.TotalCount.ToString();
             });
 
-            ViewModel.ProtoService.Send(new SearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterAudio()), result =>
+            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterAudio()), result =>
             {
                 if (result is Messages messages)
                     _musicHeader.Subtitle = messages.TotalCount.ToString();
             });
 
-            ViewModel.ProtoService.Send(new SearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterVoiceNote()), result =>
+            ViewModel.ProtoService.Send(ModernTdlibCompatibility.CreateSearchChatMessages(chat.Id, null, string.Empty, null, 0, 0, 1, new SearchMessagesFilterVoiceNote()), result =>
             {
                 if (result is Messages messages)
                     _voiceHeader.Subtitle = messages.TotalCount.ToString();

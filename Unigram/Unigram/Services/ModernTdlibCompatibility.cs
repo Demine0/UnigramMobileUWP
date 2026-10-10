@@ -92,6 +92,33 @@ namespace Unigram.Services
             return threadId == 0 ? null : new MessageTopicThread(threadId);
         }
 
+        public static SearchChatMessages CreateSearchChatMessages(long chatId, MessageTopic topic, string query, MessageSender sender, long fromMessageId, int offset, int limit, SearchMessagesFilter filter)
+        {
+            // Avoid the generated multi-argument activation factory: it fails to marshal
+            // optional WinRT interface arguments reliably in the .NET Native ARM build.
+            var request = new SearchChatMessages
+            {
+                ChatId = chatId,
+                Query = query ?? string.Empty,
+                FromMessageId = fromMessageId,
+                Offset = offset,
+                Limit = limit,
+                Filter = filter ?? new SearchMessagesFilterEmpty()
+            };
+
+            if (topic != null)
+            {
+                request.TopicId = topic;
+            }
+
+            if (sender != null)
+            {
+                request.SenderId = sender;
+            }
+
+            return request;
+        }
+
         public static string GetWebPageTypeName(WebPage webPage)
         {
             if (webPage?.Type == null)
