@@ -3546,3 +3546,15 @@ existing localized “You added …” message. TDLib errors use the existing, l
 add-user alerts with channel-specific wording; unexpected result types show the
 standard error dialog. This change records no diagnostic data and exposes no account or
 member identifiers outside the existing local UI.
+
+## 26.9.6258.0 - handle modern add-member results
+
+Device diagnostics showed `AddChatMember` returning `FailedToAddMembers`, not `Ok`.
+That is the documented result shape in the pinned modern TDLib: the list is empty when
+the selected user was added, and contains an entry when that user could not be added.
+The 6257 success check therefore treated every add attempt as an unexpected error.
+
+Both member-add entry points now share one typed result handler. An empty
+`FailedToAddMembers` list confirms success; a nonempty list shows the existing
+channel- or group-specific invite restriction. Legacy `Error` responses still use the
+existing mapped alert, and only unknown result types reach the generic error dialog.
