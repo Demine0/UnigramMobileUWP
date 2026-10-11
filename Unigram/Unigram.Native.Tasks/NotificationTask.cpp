@@ -15,6 +15,7 @@
 
 using namespace concurrency;
 using namespace Platform;
+using namespace Telegram::Td;
 using namespace Unigram::Native::Tasks;
 using namespace Windows::ApplicationModel::Calls;
 using namespace Windows::ApplicationModel::Resources;
@@ -69,7 +70,34 @@ task<void> NotificationTask::UpdateToastAndTiles(String^ content /*, std::wofstr
 		}
 		LogDiagnostic(L"native.payload.parsed", L"result=success;has_data=true");
 
-		auto session = GetSession(data);
+		String^ session = nullptr;
+		try
+		{
+			auto receiver = dynamic_cast<Telegram::Td::Api::PushReceiverId^>(
+				Client::Execute(ref new Telegram::Td::Api::GetPushReceiverId(content)));
+			if (receiver != nullptr)
+			{
+				session = GetSession(receiver->Id);
+				LogDiagnostic(L"native.receiver.resolve", L"result=success");
+			}
+			else
+			{
+				LogDiagnostic(L"native.receiver.resolve", L"result=missing");
+			}
+		}
+		catch (Exception ^ ex)
+		{
+			LogError(L"resolving push receiver", ex);
+			LogDiagnostic(L"native.receiver.resolve", L"result=error");
+		}
+
+		// Older payloads can contain the account id directly. This remains a
+		// compatibility fallback only; TDLib's parser above is authoritative for
+		// modern encrypted raw pushes.
+		if (session == nullptr && data->HasKey(L"user_id"))
+		{
+			session = GetSession(static_cast<long long>(data->GetNamedNumber(L"user_id")));
+		}
 		if (session == nullptr)
 		{
 			session = L"0";
@@ -377,25 +405,19 @@ String^ NotificationTask::GetDate(JsonObject^ notification)
 	return ref new String(buffer);
 }
 
-String^ NotificationTask::GetSession(JsonObject^ data)
+String^ NotificationTask::GetSession(long long receiverId)
 {
-	if (data == nullptr || !data->HasKey(L"user_id"))
-	{
-		return nullptr;
-	}
-
 	// TDLib identifiers are signed 53-bit integers. The managed background handler
 	// resolves the push-receiver mapping first; the native task must use the same
 	// lookup order and must not truncate a modern account id to 32 bits.
-	auto user_id = static_cast<unsigned long long>(data->GetNamedNumber(L"user_id"));
-	if (user_id == 0)
+	if (receiverId == 0)
 	{
 		return nullptr;
 	}
 
 	auto values = ApplicationData::Current->LocalSettings->Values;
 	std::wstringstream key;
-	key << L"PushReceiverId" << user_id;
+	key << L"PushReceiverId" << receiverId;
 	auto receiverKey = ref new String(key.str().c_str());
 
 	if (values->HasKey(receiverKey))
@@ -405,7 +427,7 @@ String^ NotificationTask::GetSession(JsonObject^ data)
 
 	key.str(L"");
 	key.clear();
-	key << L"User" << user_id;
+	key << L"User" << receiverId;
 	auto userKey = ref new String(key.str().c_str());
 
 	if (values->HasKey(userKey))

@@ -50,6 +50,12 @@
     <WindowsTargetPlatformMinVersion>10.0.14393.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
   </PropertyGroup>
+  <PropertyGroup>
+    <UseModernTdlib Condition="'$(UseModernTdlib)' == ''">true</UseModernTdlib>
+    <ModernTdlibWorkRoot Condition="'$(ModernTdlibWorkRoot)' == ''">$(LOCALAPPDATA)\UnigramTdlibExperiment</ModernTdlibWorkRoot>
+    <ModernTdlibRoot Condition="'$(ModernTdlibRoot)' == '' and '$(UNIGRAM_MODERN_TDLIB_ROOT)' != ''">$(UNIGRAM_MODERN_TDLIB_ROOT)</ModernTdlibRoot>
+    <ModernTdlibRoot Condition="'$(ModernTdlibRoot)' == ''">$(ModernTdlibWorkRoot)\build-uwp-arm\RelWithDebInfo</ModernTdlibRoot>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -227,6 +233,12 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="NotificationTask.h" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseModernTdlib)' == 'true'">
+    <Reference Include="Telegram.Td">
+      <HintPath>$(ModernTdlibRoot)\Telegram.Td.winmd</HintPath>
+      <IsWinMDFile>true</IsWinMDFile>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">

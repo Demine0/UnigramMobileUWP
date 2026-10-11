@@ -3495,3 +3495,20 @@ the fallback mapping is correct after the app next initializes each account.
 The task records only `native.session.resolve|result=mapped|fallback_default` and
 `native.tile.update|result=success`; neither diagnostic contains an account identifier,
 push token, message content, or filesystem path.
+
+## 26.9.6255.0 - resolve raw-push routing through TDLib
+
+The native background task still inferred the target session from the raw JSON
+`data.user_id` field. Modern TDLib provides `getPushReceiverId(payload)` precisely
+because a raw payload must be parsed by TDLib to find the subscription receiver. The
+managed activation path already uses that function, but the native task did not.
+
+The native task now references the packaged, pinned `Telegram.Td.winmd` and calls
+`Client.Execute(new GetPushReceiverId(payload))` before it selects a session. It uses
+the resulting receiver id to look up `PushReceiverId{receiverId}`, then falls back to
+the legacy user mapping only for older payloads that TDLib cannot resolve. This removes
+the undocumented raw-field assumption from the out-of-process notification path.
+
+Diagnostics now record `native.receiver.resolve|result=success|missing|error` in
+addition to the session and tile outcomes. They remain privacy-safe: no receiver id,
+user id, token, message content, or path is written.
