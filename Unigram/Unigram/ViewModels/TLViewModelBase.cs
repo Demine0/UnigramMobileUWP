@@ -48,7 +48,7 @@ namespace Unigram.ViewModels
 
         public int SessionId => _protoService.SessionId;
 
-        protected async Task ShowAddChatMemberResultAsync(BaseObject response, User user, bool isChannel)
+        protected async Task<bool> ShowAddChatMemberResultAsync(BaseObject response, User user, bool isChannel)
         {
             if (response is FailedToAddMembers failedToAddMembers)
             {
@@ -59,14 +59,13 @@ namespace Unigram.ViewModels
                         Strings.Resources.ActionYouAddUser.Replace("un2", user.GetFullName()),
                         Strings.Resources.AppName,
                         Strings.Resources.OK);
+                    return true;
                 }
-                else
-                {
-                    await MessagePopup.ShowAsync(
-                        isChannel ? Strings.Resources.InviteToChannelError : Strings.Resources.InviteToGroupError,
-                        Strings.Resources.AppName,
-                        Strings.Resources.OK);
-                }
+
+                await MessagePopup.ShowAsync(
+                    isChannel ? Strings.Resources.InviteToChannelError : Strings.Resources.InviteToGroupError,
+                    Strings.Resources.AppName,
+                    Strings.Resources.OK);
             }
             else if (response is Error error)
             {
@@ -76,6 +75,8 @@ namespace Unigram.ViewModels
             {
                 await MessagePopup.ShowAsync(Strings.Resources.ErrorOccurred, Strings.Resources.AppName, Strings.Resources.OK);
             }
+
+            return false;
         }
 
         private bool _isLoading;

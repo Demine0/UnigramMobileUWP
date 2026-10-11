@@ -774,7 +774,11 @@ namespace Unigram.ViewModels
                 }
 
                 var response = await ProtoService.SendAsync(new AddChatMember(chat.Id, user.Id, (int)CacheService.Options.ForwardedMessageCountMax));
-                await ShowAddChatMemberResultAsync(response, user, (chat.Type as ChatTypeSupergroup)?.IsChannel ?? false);
+                if (await ShowAddChatMemberResultAsync(response, user, (chat.Type as ChatTypeSupergroup)?.IsChannel ?? false) &&
+                    _supergroupMembersVieModel.Chat?.Id == chat.Id)
+                {
+                    _supergroupMembersVieModel.RefreshMembers();
+                }
             }
         }
 

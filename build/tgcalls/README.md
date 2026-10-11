@@ -3558,3 +3558,16 @@ Both member-add entry points now share one typed result handler. An empty
 `FailedToAddMembers` list confirms success; a nonempty list shows the existing
 channel- or group-specific invite restriction. Legacy `Error` responses still use the
 existing mapped alert, and only unknown result types reach the generic error dialog.
+
+## 26.9.6259.0 - refresh members after a confirmed addition
+
+The members/subscribers view is backed by an incremental collection that is created
+only when the page opens. A successful `AddChatMember` did not refresh that collection,
+so the confirmation was shown but the new subscriber remained absent until the user
+left and reopened the channel.
+
+The shared result handler now returns whether TDLib confirmed the addition. On success,
+the members view replaces its collection using the same construction path as initial
+navigation, which causes the existing incremental list control to query the updated
+members. The profile's embedded members surface refreshes as well when it represents
+the same chat. Failed additions do not reload the list.
