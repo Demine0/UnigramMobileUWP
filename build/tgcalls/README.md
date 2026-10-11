@@ -3478,3 +3478,20 @@ by an `ItemDefinitionGroup` conditioned on `UseModernTdlib`. Confirmed present o
 root-relative layout after the write path had already moved to `SessionStorage`. The
 read path now resolves through `SessionStorage` as well, so the attachment is not
 silently empty.
+
+## 26.9.6254.0 - resolve native pushes through TDLib receiver mappings
+
+The native raw-push task resolved `data.user_id` only through the legacy
+`User{userId}` mapping and truncated that identifier to a 32-bit integer. Modern TDLib
+uses signed 53-bit identifiers and persists `PushReceiverId{receiverId}` when it
+registers a Windows push token. As a result, the native task could fail to associate a
+secondary-account push with its local session, then incorrectly fall back to session 0.
+
+The native task now mirrors the managed background handler: it resolves the
+`PushReceiverId` mapping first, falls back to `User`, and preserves the full identifier
+width for both keys. `ProtoService` likewise stores `my_id` without an `int` cast, so
+the fallback mapping is correct after the app next initializes each account.
+
+The task records only `native.session.resolve|result=mapped|fallback_default` and
+`native.tile.update|result=success`; neither diagnostic contains an account identifier,
+push token, message content, or filesystem path.

@@ -1978,7 +1978,7 @@ namespace Unigram.Services
 
                 if (updateOption.Name == "my_id" && updateOption.Value is OptionValueInteger myId)
                 {
-                    _settings.UserId = (int)myId.Value;
+                    _settings.UserId = myId.Value;
 
 #if !DEBUG && !MODERN_TDLIB
                     Microsoft.AppCenter.AppCenter.SetUserId($"uid={myId.Value}");

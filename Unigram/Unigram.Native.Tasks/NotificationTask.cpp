@@ -73,6 +73,11 @@ task<void> NotificationTask::UpdateToastAndTiles(String^ content /*, std::wofstr
 		if (session == nullptr)
 		{
 			session = L"0";
+			LogDiagnostic(L"native.session.resolve", L"result=fallback_default");
+		}
+		else
+		{
+			LogDiagnostic(L"native.session.resolve", L"result=mapped");
 		}
 		if (data->HasKey("loc_key") == false)
 		{
@@ -374,12 +379,38 @@ String^ NotificationTask::GetDate(JsonObject^ notification)
 
 String^ NotificationTask::GetSession(JsonObject^ data)
 {
-	auto user_id = (int)data->GetNamedNumber(L"user_id", 0);
-	auto key = String::Concat(L"User", user_id);
-
-	if (ApplicationData::Current->LocalSettings->Values->HasKey(key))
+	if (data == nullptr || !data->HasKey(L"user_id"))
 	{
-		return ApplicationData::Current->LocalSettings->Values->Lookup(key)->ToString();
+		return nullptr;
+	}
+
+	// TDLib identifiers are signed 53-bit integers. The managed background handler
+	// resolves the push-receiver mapping first; the native task must use the same
+	// lookup order and must not truncate a modern account id to 32 bits.
+	auto user_id = static_cast<unsigned long long>(data->GetNamedNumber(L"user_id"));
+	if (user_id == 0)
+	{
+		return nullptr;
+	}
+
+	auto values = ApplicationData::Current->LocalSettings->Values;
+	std::wstringstream key;
+	key << L"PushReceiverId" << user_id;
+	auto receiverKey = ref new String(key.str().c_str());
+
+	if (values->HasKey(receiverKey))
+	{
+		return values->Lookup(receiverKey)->ToString();
+	}
+
+	key.str(L"");
+	key.clear();
+	key << L"User" << user_id;
+	auto userKey = ref new String(key.str().c_str());
+
+	if (values->HasKey(userKey))
+	{
+		return values->Lookup(userKey)->ToString();
 	}
 
 	return nullptr;
@@ -448,6 +479,7 @@ void NotificationTask::UpdatePrimaryTile(String^ launch, String^ caption, String
 		auto updater = TileUpdateManager::CreateTileUpdaterForApplication(L"App");
 		updater->EnableNotificationQueue(false);
 		updater->Update(ref new TileNotification(document));
+		LogDiagnostic(L"native.tile.update", L"result=success");
 	}
 	catch (Exception ^ ex)
 	{
