@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -70,8 +71,10 @@ namespace Unigram.Services
         private CancellationTokenSource _registrationRetryCancellation;
 
         private static readonly TimeSpan RegistrationRetryDelay = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan NotificationReconciliationDelay = TimeSpan.FromSeconds(5);
         private static int _foregroundTileDiagnosticBudget = 48;
 
+        private readonly ConcurrentDictionary<string, byte> _pendingNotificationKeys = new ConcurrentDictionary<string, byte>();
         private bool _suppress;
 
         public NotificationsService(IProtoService protoService, ICacheService cacheService, ISettingsService settingsService, ISessionService sessionService, IEventAggregator aggregator)
@@ -409,8 +412,18 @@ namespace Unigram.Services
                 {
                     foreach (var notification in group.Notifications)
                     {
-                        if (hash.Contains($"{notification.Id}_{group.Id}"))
+                        var key = GetNotificationKey(group.Id, notification.Id);
+                        if (hash.Contains(key))
                         {
+                            continue;
+                        }
+
+                        // A new notification's toast is written asynchronously. Do not
+                        // remove it from TDLib merely because the OS history snapshot
+                        // was collected before that write completed.
+                        if (_pendingNotificationKeys.ContainsKey(key))
+                        {
+                            WriteForegroundTileDiagnostic("managed.notification.reconcile", "result=deferred;reason=toast_write_pending");
                             continue;
                         }
 
@@ -466,6 +479,11 @@ namespace Unigram.Services
 
             WriteForegroundTileDiagnostic("managed.tile.group", $"result=received;added={update.AddedNotifications?.Count ?? 0};removed={update.RemovedNotificationIds?.Count ?? 0};session_active={_sessionService.IsActive.ToString().ToLowerInvariant()}");
 
+            foreach (var notification in update.AddedNotifications)
+            {
+                TrackPendingNotification(update.NotificationGroupId, notification.Id);
+            }
+
             try
             {
                 var collectionHistory = await GetCollectionHistoryAsync();
@@ -481,6 +499,26 @@ namespace Unigram.Services
                 ProcessNotification(update.NotificationGroupId, update.ChatId, notification);
                 //_protoService.Send(new RemoveNotification(update.NotificationGroupId, notification.Id));
             }
+        }
+
+        private void TrackPendingNotification(int groupId, int notificationId)
+        {
+            var key = GetNotificationKey(groupId, notificationId);
+            if (_pendingNotificationKeys.TryAdd(key, 0))
+            {
+                _ = ReleasePendingNotificationAsync(key);
+            }
+        }
+
+        private async Task ReleasePendingNotificationAsync(string key)
+        {
+            await Task.Delay(NotificationReconciliationDelay);
+            _pendingNotificationKeys.TryRemove(key, out byte ignored);
+        }
+
+        private static string GetNotificationKey(int groupId, int notificationId)
+        {
+            return $"{notificationId}_{groupId}";
         }
 
         public void Handle(UpdateNotification update)

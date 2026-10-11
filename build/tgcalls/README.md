@@ -3512,3 +3512,24 @@ the undocumented raw-field assumption from the out-of-process notification path.
 Diagnostics now record `native.receiver.resolve|result=success|missing|error` in
 addition to the session and tile outcomes. They remain privacy-safe: no receiver id,
 user id, token, message content, or path is written.
+
+## 26.9.6256.0 - preserve new notifications and finish channel creation
+
+On the Lumia 1520, a secondary-account notification was added, rendered, and then
+removed about 300 ms later. `UpdateActiveNotifications` takes an OS toast-history
+snapshot and removes unknown TDLib notifications. It raced the asynchronous toast
+write that `UpdateNotificationGroup` had just started: the snapshot did not yet contain
+the toast, so the application called `RemoveNotification`, then processed TDLib's
+resulting removal update and dismissed its own new toast.
+
+New notifications are now tracked in-memory for five seconds before the active-history
+reconciler may remove them. Explicit TDLib removal updates (for example, a read
+notification) still remove the toast immediately. The reconciliation diagnostic reports
+only `result=deferred;reason=toast_write_pending`.
+
+Channel creation now retains its wizard pages until the final channel-type step has
+completed. The prior flow removed two arbitrary back-stack entries as soon as the
+channel was created, which could close the wizard. The first step is guarded against
+duplicate submissions and reports explicit errors. The final step no longer waits for
+optional supergroup full-info cache data, confirms "Channel created", then opens the
+channel and removes the wizard stack using the established group-creation pattern.
