@@ -3533,3 +3533,16 @@ channel was created, which could close the wizard. The first step is guarded aga
 duplicate submissions and reports explicit errors. The final step no longer waits for
 optional supergroup full-info cache data, confirms "Channel created", then opens the
 channel and removes the wizard stack using the established group-creation pattern.
+
+## 26.9.6257.0 - confirm member and subscriber additions
+
+`AddChatMember` returns `Ok` in the pinned modern TDLib contract, but the legacy
+callers silently ignored both successful results and errors. Adding a subscriber to a
+channel therefore completed without confirmation, and a failed request did not explain
+the problem.
+
+The member-management and profile invite flows now confirm a successful add using the
+existing localized “You added …” message. TDLib errors use the existing, localized
+add-user alerts with channel-specific wording; unexpected result types show the
+standard error dialog. This change records no diagnostic data and exposes no account or
+member identifiers outside the existing local UI.
