@@ -271,6 +271,7 @@ namespace Unigram.Controls.Messages
         private CompositionSpriteShape[] _shapes;
 
         private ContainerVisual _container;
+        private bool? _ticksReadState;
 
         #region Stroke
 
@@ -286,18 +287,38 @@ namespace Unigram.Controls.Messages
         private static void OnStrokeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var sender = d as MessageFooter;
-            var solid = e.NewValue as SolidColorBrush;
+            sender?.UpdateTickBrush();
+        }
 
-            if (solid == null || sender._container == null)
+        public Brush ReadStroke
+        {
+            get { return (Brush)GetValue(ReadStrokeProperty); }
+            set { SetValue(ReadStrokeProperty, value); }
+        }
+
+        public static readonly DependencyProperty ReadStrokeProperty =
+            DependencyProperty.Register("ReadStroke", typeof(Brush), typeof(MessageFooter), new PropertyMetadata(null, OnReadStrokeChanged));
+
+        private static void OnReadStrokeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var sender = d as MessageFooter;
+            sender?.UpdateTickBrush();
+        }
+
+        private void UpdateTickBrush()
+        {
+            var brush = (_ticksReadState == true ? ReadStroke : Stroke) as SolidColorBrush;
+            StateLabel.Foreground = brush;
+
+            if (brush == null || _container == null)
             {
                 return;
             }
 
-            var brush = Window.Current.Compositor.CreateColorBrush(solid.Color);
-
-            foreach (var shape in sender._shapes)
+            var compositionBrush = Window.Current.Compositor.CreateColorBrush(brush.Color);
+            foreach (var shape in _shapes)
             {
-                shape.StrokeBrush = brush;
+                shape.StrokeBrush = compositionBrush;
             }
         }
 
@@ -391,6 +412,9 @@ namespace Unigram.Controls.Messages
 
         private void UpdateTicks(bool? read, bool animate = false)
         {
+            _ticksReadState = read;
+            UpdateTickBrush();
+
             if (_container == null)
             {
                 return;

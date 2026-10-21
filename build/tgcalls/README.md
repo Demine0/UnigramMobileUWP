@@ -3571,3 +3571,13 @@ the members view replaces its collection using the same construction path as ini
 navigation, which causes the existing incremental list control to query the updated
 members. The profile's embedded members surface refreshes as well when it represents
 the same chat. Failed additions do not reload the list.
+
+## 26.9.6260.0 - highlight read message receipts
+
+Outgoing message receipts already used TDLib's `LastReadOutboxMessageId` to select the
+single- or double-check state, but both states used the same footer brush. A read
+receipt was therefore present but had no visual emphasis.
+
+The message footer now uses the app accent brush for a confirmed read receipt in both
+the glyph fallback and composition-drawn tick paths. Media and service-overlay footers
+keep their white receipt color so it remains legible over their translucent backgrounds.
