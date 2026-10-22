@@ -38,6 +38,15 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          # The hosted image PATH is long enough that the vcvarsall.bat call
+          # vcpkg makes on top of the script's imported environments exceeds
+          # the cmd line limit and fails with 255. Start from a minimal PATH.
+          $env:PATH = @(
+            "$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
+            "$env:SystemRoot\System32\WindowsPowerShell\v1.0", "$env:ProgramFiles\PowerShell\7",
+            "$env:ProgramFiles\Git\cmd"
+          ) -join ";"
+          Remove-Item Env:VCPKG_ROOT -ErrorAction SilentlyContinue
           .\build\tdlib\Build-TdlibArm.ps1 -WorkRoot $env:TDLIB_WORK_ROOT -VisualStudioPath $env:VS_PATH -ParallelCompilation
           Get-ChildItem $env:TDLIB_OUTPUT -Exclude Telegram.Td.dll, Telegram.Td.winmd, Telegram.Td.pri, libcrypto-3-arm.dll, libssl-3-arm.dll, z.dll, TdlibBuildManifest.txt |
             Remove-Item -Recurse -Force
