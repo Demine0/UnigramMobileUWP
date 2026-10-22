@@ -12,7 +12,7 @@ jobs:
           set VCVARS="%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat"
           for %%A in ("x64_arm 10.0.18362.0 -vcvars_ver=14.16" "x64_arm store 10.0.18362.0 -vcvars_ver=14.16" "x86_arm store 10.0.18362.0 -vcvars_ver=14.16" "x64_arm store -vcvars_ver=14.16.27023" "x64_arm uwp 10.0.18362.0 -vcvars_ver=14.16") do (
             echo ===== %%~A
-            cmd /c "set VSCMD_DEBUG=1 && call %VCVARS% %%~A > out.txt 2>&1 & echo exit=!errorlevel!" 
+            cmd /v:on /c "set VSCMD_DEBUG=1 && call %VCVARS% %%~A > out.txt 2>&1 & echo exit=!errorlevel!" 
             findstr /i "error ERROR: exit warning" out.txt
           )
           dir "%VS_PATH%\VC\Tools\MSVC\14.16.27023\lib\arm"
