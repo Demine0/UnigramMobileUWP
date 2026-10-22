@@ -1,5 +1,7 @@
 name: Toolchain probe
-on: workflow_dispatch
+on:
+  push:
+    branches: [probe]
 jobs:
   probe:
     runs-on: windows-2022
