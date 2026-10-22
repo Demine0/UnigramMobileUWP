@@ -14,7 +14,11 @@ param(
     # 14.0.33519.0 framework package that the app actually runs against, so the
     # inline Platform::String code in the headers matches the runtime DLL.
     [ValidateSet("v141", "v143")]
-    [string]$Toolset = "v143"
+    [string]$Toolset = "v143",
+    # Compile the ARM UWP build with /MP and parallel MSBuild nodes. Off by
+    # default so local builds stay single-threaded; CI enables it to fit in
+    # the hosted runner time limit. It does not change code generation.
+    [switch]$ParallelCompilation
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +45,8 @@ $hostInstalledRoot = Join-Path $WorkRoot "vcpkg_host_installed"
 $nativeBuild = Join-Path $WorkRoot "build-native"
 $uwpBuild = Join-Path $WorkRoot "build-uwp-arm"
 $toolsetVcVarsVersion = @{ "v141" = "14.16"; "v143" = "14.44" }[$Toolset]
+$multiProcessorCompilation = if ($ParallelCompilation) { "ON" } else { "OFF" }
+$msbuildNodes = if ($ParallelCompilation) { "/m" } else { "/m:1" }
 
 function Invoke-Checked {
     param(
@@ -374,7 +380,7 @@ if ($Stage -in @("Configure", "All")) {
         "-DVCPKG_OVERLAY_PORTS=$overlayRoot",
         "-DTD_ENABLE_DOTNET=CX",
         "-DTD_ENABLE_LTO=OFF",
-        "-DTD_ENABLE_MULTI_PROCESSOR_COMPILATION=OFF"
+        "-DTD_ENABLE_MULTI_PROCESSOR_COMPILATION=$multiProcessorCompilation"
     )
 }
 
@@ -384,7 +390,7 @@ if ($Stage -in @("Build", "All")) {
         "--build", $uwpBuild,
         "--config", "RelWithDebInfo",
         "--target", "tddotnet",
-        "--", "/m:1"
+        "--", $msbuildNodes
     )
 
     $outputRoot = Join-Path $uwpBuild "RelWithDebInfo"

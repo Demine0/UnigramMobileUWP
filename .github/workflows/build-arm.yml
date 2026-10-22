@@ -1,0 +1,138 @@
+name: Build ARM package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - tdlib-modern-ci
+
+concurrency:
+  group: build-arm-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TDLIB_WORK_ROOT: C:\tdlib-build
+  TDLIB_OUTPUT: C:\tdlib-build\build-uwp-arm\RelWithDebInfo
+
+jobs:
+  tdlib:
+    name: TDLib 1.8.66 (ARM UWP)
+    runs-on: windows-2022
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore TDLib output
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TDLIB_OUTPUT }}
+          key: tdlib-arm-${{ hashFiles('build/tdlib/**') }}
+
+      - name: Install toolchain
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: .\.github\scripts\Install-Toolchain.ps1
+
+      - name: Build TDLib
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          .\build\tdlib\Build-TdlibArm.ps1 -WorkRoot $env:TDLIB_WORK_ROOT -VisualStudioPath $env:VS_PATH -ParallelCompilation
+          Get-ChildItem $env:TDLIB_OUTPUT -Exclude Telegram.Td.dll, Telegram.Td.winmd, Telegram.Td.pri, libcrypto-3-arm.dll, libssl-3-arm.dll, z.dll, TdlibBuildManifest.txt |
+            Remove-Item -Recurse -Force
+
+      - name: Verify TDLib
+        shell: pwsh
+        run: .\build\tdlib\Verify-TdlibArm.ps1 -OutputRoot $env:TDLIB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-arm
+          path: ${{ env.TDLIB_OUTPUT }}
+          retention-days: 7
+
+  app:
+    name: Unigram Mobile (ARM appx)
+    needs: tdlib
+    runs-on: windows-2022
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tdlib-arm
+          path: ${{ env.TDLIB_OUTPUT }}
+
+      - name: Install toolchain
+        shell: pwsh
+        run: .\.github\scripts\Install-Toolchain.ps1
+
+      - name: Write API credentials
+        shell: pwsh
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_APP_CHANNEL: ${{ secrets.TELEGRAM_APP_CHANNEL }}
+        run: |
+          if (-not ($env:TELEGRAM_API_ID -match '^\d+$') -or -not ($env:TELEGRAM_API_HASH -match '^[0-9a-f]{32}$')) {
+            throw "Set the TELEGRAM_API_ID and TELEGRAM_API_HASH repository secrets (from https://my.telegram.org/apps)."
+          }
+          $channel = if ($env:TELEGRAM_APP_CHANNEL) { $env:TELEGRAM_APP_CHANNEL } else { "tdlib-experimental-no-credentials" }
+          @"
+          namespace Unigram
+          {
+              public static partial class Constants
+              {
+                  static Constants()
+                  {
+                      ApiId = $($env:TELEGRAM_API_ID);
+                      ApiHash = "$($env:TELEGRAM_API_HASH)";
+                      AppChannel = "$channel";
+                      AppCenterId = string.Empty;
+                  }
+              }
+          }
+          "@ | Set-Content -Path Unigram\Unigram\Constants.Secret.cs -Encoding utf8
+
+      - name: Import signing certificate
+        id: cert
+        shell: pwsh
+        env:
+          SIGNING_PFX_BASE64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          SIGNING_PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:GITHUB_WORKSPACE "Unigram\Unigram\Unigram_StoreKey.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
+          $password = ConvertTo-SecureString $env:SIGNING_PFX_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          "thumbprint=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Export-Certificate -Cert $cert -FilePath out\Unigram_ARM.cer | Out-Null
+
+      - name: Build
+        shell: pwsh
+        run: |
+          # The downloaded output is newer than the checked-in build inputs, so
+          # the EnsureModernTdlib target stays incremental and does not rebuild.
+          (Get-Item "$env:TDLIB_OUTPUT\TdlibBuildManifest.txt").LastWriteTime = Get-Date
+          $msbuild = Join-Path $env:VS_PATH "MSBuild\Current\Bin\MSBuild.exe"
+          & $msbuild Unigram\UnigramMobile.sln -restore -m `
+            /p:Configuration=Release /p:Platform=ARM `
+            /p:ModernTdlibWorkRoot=$env:TDLIB_WORK_ROOT `
+            /p:PackageCertificateThumbprint=${{ steps.cert.outputs.thumbprint }} `
+            /p:AppxPackageSigningEnabled=true `
+            /p:AppxPackageDir="$env:GITHUB_WORKSPACE\out\AppPackages\\"
+          if ($LASTEXITCODE -ne 0) { throw "MSBuild failed with code $LASTEXITCODE." }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UnigramMobile-ARM
+          path: |
+            out/Unigram_ARM.cer
+            out/AppPackages/**/*.appx
+            out/AppPackages/**/*.cer
+          if-no-files-found: error
