@@ -44,6 +44,12 @@ $installedRoot = Join-Path $WorkRoot "vcpkg_installed"
 $hostInstalledRoot = Join-Path $WorkRoot "vcpkg_host_installed"
 $nativeBuild = Join-Path $WorkRoot "build-native"
 $uwpBuild = Join-Path $WorkRoot "build-uwp-arm"
+# Each Import-VcVars starts from this environment. Importing on top of a
+# previous import keeps appending to PATH/INCLUDE/LIB until vcvarsall.bat
+# fails with "The input line is too long".
+$baselineEnvironment = @{}
+Get-ChildItem Env: | ForEach-Object { $baselineEnvironment[$_.Name] = $_.Value }
+
 $toolsetVcVarsVersion = @{ "v141" = "14.16"; "v143" = "14.44" }[$Toolset]
 $multiProcessorCompilation = if ($ParallelCompilation) { "ON" } else { "OFF" }
 $msbuildNodes = if ($ParallelCompilation) { "/m" } else { "/m:1" }
@@ -244,6 +250,13 @@ function Import-VcVars {
         # selected $Toolset.
         [string]$VcVarsVersion = "14.16"
     )
+
+    Get-ChildItem Env: |
+        Where-Object { -not $baselineEnvironment.ContainsKey($_.Name) } |
+        ForEach-Object { Remove-Item "Env:$($_.Name)" }
+    foreach ($name in $baselineEnvironment.Keys) {
+        Set-Item -Path "env:$name" -Value $baselineEnvironment[$name]
+    }
 
     $vcvars = Join-Path $VisualStudioPath "VC\Auxiliary\Build\vcvarsall.bat"
     $command = "call `"$vcvars`" $Architecture 10.0.18362.0 -vcvars_ver=$VcVarsVersion >nul && set"

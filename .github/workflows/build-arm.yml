@@ -13,6 +13,7 @@ concurrency:
 env:
   TDLIB_WORK_ROOT: C:\tdlib-build
   TDLIB_OUTPUT: C:\tdlib-build\build-uwp-arm\RelWithDebInfo
+  VCPKG_DEFAULT_BINARY_CACHE: C:\vcpkg-binary-cache
 
 jobs:
   tdlib:
@@ -34,18 +35,43 @@ jobs:
         shell: pwsh
         run: .\.github\scripts\Install-Toolchain.ps1
 
-      - name: Build TDLib
+      - name: Restore vcpkg binary cache
+        id: vcpkg-cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-arm-${{ hashFiles('build/tdlib/vcpkg.json', 'build/tdlib/triplets/**', 'build/tdlib/overlays/**') }}
+
+      - name: Build TDLib dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
           # The hosted image PATH is long enough that the vcvarsall.bat call
-          # vcpkg makes on top of the script's imported environments exceeds
-          # the cmd line limit and fails with 255. Start from a minimal PATH.
+          # vcpkg makes overflows the cmd line limit. Start from a minimal PATH.
           $env:PATH = @(
             "$env:SystemRoot\System32", $env:SystemRoot, "$env:SystemRoot\System32\Wbem",
             "$env:SystemRoot\System32\WindowsPowerShell\v1.0", "$env:ProgramFiles\PowerShell\7",
             "$env:ProgramFiles\Git\cmd"
           ) -join ";"
+          "MINIMAL_PATH=$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Remove-Item Env:VCPKG_ROOT -ErrorAction SilentlyContinue
+          .\build\tdlib\Build-TdlibArm.ps1 -WorkRoot $env:TDLIB_WORK_ROOT -VisualStudioPath $env:VS_PATH -Stage Dependencies
+
+      # Saved even when a later step fails: the dependencies take hours.
+      - name: Save vcpkg binary cache
+        if: always() && steps.cache.outputs.cache-hit != 'true' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-arm-${{ hashFiles('build/tdlib/vcpkg.json', 'build/tdlib/triplets/**', 'build/tdlib/overlays/**') }}
+
+      - name: Build TDLib
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $env:PATH = $env:MINIMAL_PATH
           Remove-Item Env:VCPKG_ROOT -ErrorAction SilentlyContinue
           .\build\tdlib\Build-TdlibArm.ps1 -WorkRoot $env:TDLIB_WORK_ROOT -VisualStudioPath $env:VS_PATH -ParallelCompilation
           Get-ChildItem $env:TDLIB_OUTPUT -Exclude Telegram.Td.dll, Telegram.Td.winmd, Telegram.Td.pri, libcrypto-3-arm.dll, libssl-3-arm.dll, z.dll, TdlibBuildManifest.txt |
